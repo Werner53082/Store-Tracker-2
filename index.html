@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Municipal Stores Tracker</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,sans-serif;background:#f5f4f0;min-height:100vh;}
+  :root{
+    --brand:#0C447C;--brand-light:#E6F1FB;--brand-mid:#185FA5;
+    --success:#3B6D11;--success-bg:#EAF3DE;
+    --warn:#854F0B;--warn-bg:#FAEEDA;
+    --danger:#A32D2D;--danger-bg:#FCEBEB;
+    --gray-bg:#F1EFE8;--r:12px;--rs:8px;
+    --bg:#fff;--bg2:#f0efeb;--bg3:#f5f4f0;
+    --tx:#111;--tx2:#666;
+    --bd:rgba(0,0,0,0.1);--bd2:rgba(0,0,0,0.2);
+  }
+  .shell{max-width:480px;margin:0 auto;padding:0 0 80px;}
+  .hdr{background:var(--brand);color:white;padding:16px 20px 14px;position:sticky;top:0;z-index:100;display:flex;align-items:flex-start;justify-content:space-between;}
+  .hdr h1{font-size:15px;font-weight:500;}
+  .hdr p{font-size:11px;opacity:0.7;margin-top:2px;letter-spacing:0.5px;text-transform:uppercase;}
+  .sync-ind{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.75);padding:4px 8px;border-radius:20px;border:0.5px solid rgba(255,255,255,0.25);cursor:pointer;white-space:nowrap;margin-top:2px;}
+  .sdot{width:7px;height:7px;border-radius:50%;background:#97C459;flex-shrink:0;}
+  .sdot.off{background:#EF9F27;} .sdot.syn{background:#85B7EB;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  .scr{display:none;padding:16px;animation:fi .2s ease;}
+  .scr.vis{display:block;}
+  @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .card{background:var(--bg);border-radius:var(--r);border:0.5px solid var(--bd);padding:16px;margin-bottom:12px;}
+  .ct{font-size:13px;font-weight:500;color:var(--tx2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;}
+
+  label{display:block;font-size:13px;color:var(--tx2);margin-bottom:4px;margin-top:12px;}
+  label:first-child{margin-top:0;}
+  input[type=text],input[type=date],textarea{width:100%;font-size:15px;padding:10px 12px;border-radius:var(--rs);border:0.5px solid var(--bd2);background:var(--bg);color:var(--tx);font-family:inherit;}
+  input[type=text],input[type=date]{height:42px;}
+  textarea{resize:vertical;min-height:70px;line-height:1.5;}
+  input:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-light);}
+
+  .btn{display:block;width:100%;padding:13px 16px;border-radius:var(--rs);font-size:15px;font-weight:500;cursor:pointer;border:none;transition:all .15s;font-family:inherit;text-align:center;}
+  .btn-p{background:var(--brand);color:white;} .btn-p:hover{background:var(--brand-mid);}
+  .btn-s{background:var(--bg2);color:var(--tx);border:0.5px solid var(--bd2);} .btn-s:hover{background:var(--gray-bg);}
+  .btn-ok{background:var(--success);color:white;} .btn-ok:hover{background:#27500A;}
+  .btn-sm{font-size:13px;padding:8px 12px;}
+  .btn-exp{background:var(--warn-bg);color:var(--warn);border:0.5px solid #FAC775;font-size:13px;padding:9px 14px;border-radius:var(--rs);cursor:pointer;font-family:inherit;font-weight:500;display:inline-flex;align-items:center;gap:6px;}
+  .btn-exp:hover{background:#FAC775;}
+  .btn-wa{background:#25D366;color:white;border:none;font-size:13px;padding:9px 14px;border-radius:var(--rs);cursor:pointer;font-family:inherit;font-weight:500;display:inline-flex;align-items:center;gap:6px;}
+  .btn-wa:hover{background:#1da851;}
+
+  .itype-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+  .itype-btn{padding:14px 10px;border-radius:var(--rs);border:1.5px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;}
+  .itype-btn:hover{border-color:var(--brand);background:var(--brand-light);}
+  .itype-btn.sel-new{border-color:var(--success);background:var(--success-bg);}
+  .itype-btn.sel-rep{border-color:var(--warn);background:var(--warn-bg);}
+  .itype-btn svg{display:block;margin:0 auto 8px;}
+  .itype-lbl{font-size:14px;font-weight:500;color:var(--tx);}
+  .itype-sub{font-size:11px;color:var(--tx2);margin-top:3px;line-height:1.4;}
+  .sel-new .itype-lbl{color:var(--success);} .sel-new .itype-sub{color:var(--success);}
+  .sel-rep .itype-lbl{color:var(--warn);} .sel-rep .itype-sub{color:var(--warn);}
+
+  /* NATIVE CAMERA */
+  .cam-overlay{display:none;position:fixed;inset:0;background:#000;z-index:1000;flex-direction:column;}
+  .cam-overlay.open{display:flex;}
+  .cam-top{background:rgba(0,0,0,0.7);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .cam-top-label{color:white;font-size:13px;font-weight:500;flex:1;text-align:center;}
+  .cam-close{color:rgba(255,255,255,0.8);background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;}
+  .cam-viewfinder{flex:1;position:relative;overflow:hidden;background:#000;}
+  #camVideo{width:100%;height:100%;object-fit:cover;display:block;}
+  .cam-overlay-ui{position:absolute;inset:0;pointer-events:none;}
+  .cam-bracket{position:absolute;width:40px;height:40px;border-color:rgba(255,255,255,0.6);border-style:solid;}
+  .cb-tl{top:20px;left:20px;border-width:2px 0 0 2px;}
+  .cb-tr{top:20px;right:20px;border-width:2px 2px 0 0;}
+  .cb-bl{bottom:20px;left:20px;border-width:0 0 2px 2px;}
+  .cb-br{bottom:20px;right:20px;border-width:0 2px 2px 0;}
+  .cam-gps-bar{position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,0.5);padding:6px 12px;display:flex;align-items:center;gap:6px;}
+  .gps-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .gps-dot.got{background:#97C459;}
+  .gps-dot.wait{background:#EF9F27;animation:pulse 1s infinite;}
+  .gps-dot.err{background:#E24B4A;}
+  .cam-gps-text{font-size:11px;color:rgba(255,255,255,0.85);}
+  .cam-stamp-preview{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);padding:6px 10px;}
+  .cam-stamp-preview p{font-size:10px;color:rgba(255,255,255,0.75);font-family:monospace;line-height:1.5;}
+  .cam-controls{background:rgba(0,0,0,0.85);padding:20px 24px 28px;display:flex;align-items:center;justify-content:space-around;}
+  .cam-shutter{width:68px;height:68px;border-radius:50%;background:white;border:3px solid rgba(255,255,255,0.4);cursor:pointer;transition:transform .1s;flex-shrink:0;}
+  .cam-shutter:active{transform:scale(0.9);}
+  .cam-flip{background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;}
+  .cam-flip:hover{background:rgba(255,255,255,0.25);}
+
+  /* Photo zones */
+  .pz{border:1.5px dashed var(--bd2);border-radius:var(--rs);padding:18px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2);margin-bottom:6px;}
+  .pz:hover{border-color:var(--brand);background:var(--brand-light);}
+  .pz.cap{border-style:solid;border-color:var(--success);background:var(--success-bg);}
+  .pz svg{display:block;margin:0 auto 8px;}
+  .pz p{font-size:13px;color:var(--tx2);}
+  .pz.cap p{color:var(--success);font-weight:500;}
+  .pthumb{width:100%;max-height:160px;object-fit:cover;border-radius:var(--rs);margin-top:6px;display:none;}
+  .pthumb.vis{display:block;}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
+  .bi{background:var(--brand-light);color:var(--brand);}
+  .bs{background:var(--success-bg);color:var(--success);}
+  .bw{background:var(--warn-bg);color:var(--warn);}
+  .bd-{background:var(--danger-bg);color:var(--danger);}
+
+  .ir{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--bd);font-size:14px;gap:12px;}
+  .ir:last-child{border-bottom:none;}
+  .ir .l{color:var(--tx2);font-size:12px;flex-shrink:0;}
+  .ir .v{font-weight:500;color:var(--tx);text-align:right;word-break:break-word;}
+
+  .cbtn{flex:1;padding:10px;border-radius:var(--rs);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s;color:var(--tx);font-family:inherit;}
+  .cbtn.op{border-color:var(--success);background:var(--success-bg);color:var(--success);}
+  .cbtn.dmg{border-color:var(--danger);background:var(--danger-bg);color:var(--danger);}
+
+  .ri{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid var(--bd);cursor:pointer;}
+  .ri:last-child{border-bottom:none;}
+  .ri:hover{background:var(--bg2);margin:0 -16px;padding:12px 16px;border-radius:var(--rs);}
+  .ric{width:36px;height:36px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .rib{flex:1;min-width:0;}
+  .rin{font-size:14px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ris{font-size:12px;color:var(--tx2);margin-top:2px;}
+
+  .notice{padding:12px 14px;border-radius:var(--rs);font-size:13px;margin-bottom:12px;line-height:1.5;}
+  .ni{background:var(--brand-light);color:#0C447C;border:0.5px solid #B5D4F4;}
+  .nw{background:var(--warn-bg);color:var(--warn);border:0.5px solid #FAC775;}
+  .ns{background:var(--success-bg);color:var(--success);border:0.5px solid #C0DD97;}
+  .noff{background:var(--warn-bg);color:var(--warn);border-bottom:0.5px solid #FAC775;display:none;padding:10px 14px;font-size:12px;}
+
+  .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:480px;max-width:100vw;background:var(--bg);border-top:0.5px solid var(--bd);display:flex;z-index:200;}
+  .nb{flex:1;padding:10px 4px 12px;text-align:center;cursor:pointer;border:none;background:none;font-family:inherit;font-size:10px;color:var(--tx2);transition:color .15s;}
+  .nb.act{color:var(--brand);}
+  .nb.req{color:var(--warn);}
+  .nb svg{display:block;margin:0 auto 3px;}
+  .ndot{width:6px;height:6px;border-radius:50%;background:var(--warn);display:inline-block;margin-left:3px;vertical-align:middle;}
+
+  .psteps{display:flex;flex-direction:column;gap:12px;}
+  .pstep{border-radius:var(--rs);border:0.5px solid var(--bd);overflow:hidden;}
+  .pshdr{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg2);}
+  .snum{width:22px;height:22px;border-radius:50%;background:var(--bd2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--tx2);flex-shrink:0;}
+  .snum.dn{background:var(--success-bg);color:var(--success);}
+  .snum.ac{background:var(--brand-light);color:var(--brand);}
+  .psbdy{padding:12px 14px;}
+
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .pcell{border-radius:var(--rs);overflow:hidden;aspect-ratio:4/3;background:var(--bg2);position:relative;}
+  .pcell img{width:100%;height:100%;object-fit:cover;}
+  .pclbl{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:white;font-size:10px;padding:4px 6px;text-align:center;}
+
+  .mwrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:flex-end;justify-content:center;}
+  .mwrap.center{align-items:center;}
+  .modal-center{background:var(--bg);border-radius:var(--r);padding:24px 20px;width:calc(100% - 32px);max-width:440px;animation:fi .2s ease;}
+  .modal-center h2{font-size:17px;font-weight:500;margin-bottom:8px;}
+  .modal-center p{font-size:13px;color:var(--tx2);margin-bottom:16px;line-height:1.6;}
+  .btn-danger{background:var(--danger);color:white;font-size:14px;padding:11px;border-radius:var(--rs);border:none;cursor:pointer;font-family:inherit;font-weight:500;width:100%;margin-top:8px;}
+  .btn-danger:hover{background:#7f1f1f;}
+  .del-locked{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:var(--rs);background:var(--bg2);border:0.5px solid var(--bd2);font-size:13px;color:var(--tx2);margin-top:8px;}
+  .del-unlocked{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:var(--rs);background:var(--danger-bg);border:0.5px solid #F09595;font-size:13px;color:var(--danger);margin-top:8px;cursor:pointer;}
+  .storage-bar-wrap{background:var(--bg2);border-radius:20px;height:6px;margin:8px 0 4px;overflow:hidden;}
+  .storage-bar{height:100%;border-radius:20px;background:var(--success);transition:width .3s;}
+  .storage-bar.warn{background:#EF9F27;}
+  .storage-bar.full{background:var(--danger);}
+  .mwrap.open{display:flex;}
+  .modal{background:var(--bg);border-radius:var(--r) var(--r) 0 0;padding:20px;width:100%;max-width:480px;animation:su .25s ease;}
+  @keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal h2{font-size:16px;font-weight:500;margin-bottom:4px;}
+  .modal p{font-size:13px;color:var(--tx2);margin-bottom:16px;}
+  .eopt{display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--rs);border:0.5px solid var(--bd2);margin-bottom:8px;cursor:pointer;transition:background .15s;}
+  .eopt:hover{background:var(--bg2);}
+  .eoic{width:36px;height:36px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .eotit{font-size:14px;font-weight:500;color:var(--tx);}
+  .eosub{font-size:12px;color:var(--tx2);margin-top:2px;}
+  .pb{background:var(--warn-bg);color:var(--warn);font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;margin-left:4px;}
+
+  .divider{height:0.5px;background:var(--bd);margin:12px 0;}
+  .mt8{margin-top:8px} .mt12{margin-top:12px} .mt16{margin-top:16px}
+  .sh{font-size:20px;font-weight:500;margin-bottom:4px;}
+  .ss{font-size:13px;color:var(--tx2);margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="hdr">
+    <div><h1 id="hTitle">Municipal Stores Tracker</h1><p id="hSub">Capital spares management</p></div>
+    <div class="sync-ind" id="syncInd" onclick="trySync()">
+      <div class="sdot" id="sdot"></div><span id="slbl">Online</span>
+    </div>
+  </div>
+  <div class="noff" id="offBanner">No internet — records saved locally, will sync when reconnected.</div>
+
+  <div class="bnav">
+    <button class="nb act" id="navNew" onclick="goTo('new')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M10 7v6M7 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>New Issue
+    </button>
+    <button class="nb" id="navInstall" onclick="goTo('install')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v11M6 10l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Install
+    </button>
+    <button class="nb" id="navReturn" onclick="goTo('return')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M14 3H6a3 3 0 00-3 3v8a3 3 0 003 3h8a3 3 0 003-3V6a3 3 0 00-3-3z" stroke="currentColor" stroke-width="1.5"/><path d="M8 10l-2 2 2 2M12 8l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="retNavLbl">Return</span>
+    </button>
+    <button class="nb" id="navRecords" onclick="goTo('records')">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 5h10M5 9h10M5 13h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Records
+    </button>
+  </div>
+
+  <!-- ISSUE -->
+  <div class="scr vis" id="scr-new">
+    <p class="sh">Issue item from stores</p><p class="ss">Complete requisition and capture receipt photo</p>
+    <div class="card">
+      <div class="ct">Requisition details</div>
+      <label>Requisition number</label><input type="text" id="reqNum" placeholder="e.g. REQ-2026-0042">
+      <label>Technician name</label><input type="text" id="techName" placeholder="Full name">
+      <label>Date of issue</label><input type="date" id="issueDate">
+      <label>Work order / job number</label><input type="text" id="workOrder" placeholder="e.g. WO-2026-0187">
+    </div>
+    <div class="card">
+      <div class="ct">Item details</div>
+      <label>Item description</label><input type="text" id="itemDesc" placeholder="e.g. Distribution transformer 100kVA">
+      <label>Stock / asset code</label><input type="text" id="stockCode" placeholder="e.g. TR-100KVA-11/0.4">
+      <label>Serial number</label><input type="text" id="serialNum" placeholder="e.g. SN-2024-00871">
+      <label>Location / substation</label><input type="text" id="location" placeholder="e.g. Mokopane Sub A, Feeder 3">
+    </div>
+    <div class="card">
+      <div class="ct">Receipt photo</div>
+      <div class="notice ni">Camera will stamp GPS coordinates and date/time on the photo. Ensure serial number is visible.</div>
+      <div class="pz" id="pz-issue" onclick="openCam('issue','Receipt — item from stores')">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+        <p id="pzt-issue">Tap to capture — GPS stamp will be applied</p>
+      </div>
+      <img class="pthumb" id="pt-issue" src="" alt="">
+    </div>
+    <div class="card">
+      <label>Stores officer name</label><input type="text" id="storesOfficer" placeholder="Name of issuing officer">
+      <label>Notes (optional)</label><textarea id="issueNotes" placeholder="Any additional notes…"></textarea>
+    </div>
+    <button class="btn btn-p mt16" onclick="submitIssue()">Confirm issue &amp; save record</button>
+  </div>
+
+  <!-- INSTALL -->
+  <div class="scr" id="scr-install">
+    <p class="sh">Record installation</p><p class="ss">Link to requisition, select type, capture photos</p>
+    <div class="card">
+      <div class="ct">Link to issued item</div>
+      <label>Requisition number</label><input type="text" id="inst-req" placeholder="e.g. REQ-2026-0042">
+      <button class="btn btn-s btn-sm mt8" onclick="lookupReq()">Look up requisition</button>
+    </div>
+    <div class="card" id="inst-lu" style="display:none;">
+      <div class="ct">Requisition found</div>
+      <div class="ir"><span class="l">Item</span><span class="v" id="lu-item"></span></div>
+      <div class="ir"><span class="l">Technician</span><span class="v" id="lu-tech"></span></div>
+      <div class="ir"><span class="l">Work order</span><span class="v" id="lu-wo"></span></div>
+      <div class="ir"><span class="l">Location</span><span class="v" id="lu-loc"></span></div>
+    </div>
+    <div class="card">
+      <div class="ct">Installation type</div>
+      <div class="itype-grid">
+        <button class="itype-btn" id="it-new" onclick="setIType('new')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" opacity="0.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div class="itype-lbl">New installation</div><div class="itype-sub">No existing asset removed</div>
+        </button>
+        <button class="itype-btn" id="it-rep" onclick="setIType('replace')">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 16l-4-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><path d="M17 8l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div class="itype-lbl">Replacing existing</div><div class="itype-sub">Existing asset removed &amp; returned</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- NEW INSTALL -->
+    <div id="sec-new" style="display:none;">
+      <div class="card">
+        <div class="ct">As-installed photo</div>
+        <div class="notice ns">New installation — no asset removal required.</div>
+        <div class="pz" id="pz-inst-new" onclick="openCam('inst-new','As installed — new')">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+          <p id="pzt-inst-new">Tap to capture as-installed photo</p>
+        </div>
+        <img class="pthumb" id="pt-inst-new" src="" alt="">
+      </div>
+      <div class="card"><label>Notes</label><textarea id="notes-new" placeholder="Observations…"></textarea></div>
+      <button class="btn btn-p mt16" onclick="submitInstall('new')">Save installation record</button>
+    </div>
+
+    <!-- REPLACE INSTALL -->
+    <div id="sec-rep" style="display:none;">
+      <div class="card">
+        <div class="ct">Photo sequence</div>
+        <div class="notice nw">Three GPS-stamped photos required — complete in order.</div>
+        <div class="psteps">
+          <div class="pstep">
+            <div class="pshdr"><div class="snum ac" id="sn1">1</div><div style="flex:1;font-size:13px;font-weight:500;">Existing asset — as found in position</div><span class="badge bw" id="sb1">Required</span></div>
+            <div class="psbdy">
+              <p style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Photograph before removal. Capture serial number plate clearly.</p>
+              <div class="pz" id="pz-exist" onclick="openCam('exist','Existing asset — as found')">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+                <p id="pzt-exist">Tap to photograph existing asset</p>
+              </div>
+              <img class="pthumb" id="pt-exist" src="" alt="">
+            </div>
+          </div>
+          <div class="pstep">
+            <div class="pshdr"><div class="snum" id="sn2">2</div><div style="flex:1;font-size:13px;font-weight:500;">New item — as installed</div><span class="badge" id="sb2" style="background:var(--bg2);color:var(--tx2);">After step 1</span></div>
+            <div class="psbdy">
+              <p style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Photograph new item fully installed. Capture nameplate and surroundings.</p>
+              <div class="pz" id="pz-inst-rep" onclick="openCam('inst-rep','New item — as installed')">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+                <p id="pzt-inst-rep">Tap to photograph new item</p>
+              </div>
+              <img class="pthumb" id="pt-inst-rep" src="" alt="">
+            </div>
+          </div>
+          <div class="pstep">
+            <div class="pshdr"><div class="snum" id="sn3">3</div><div style="flex:1;font-size:13px;font-weight:500;">Removed asset — serial number visible</div><span class="badge" id="sb3" style="background:var(--bg2);color:var(--tx2);">After step 2</span></div>
+            <div class="psbdy">
+              <p style="font-size:12px;color:var(--tx2);margin-bottom:8px;">After extraction — ensure serial number is clearly visible. This is matched against the stores check-in photo.</p>
+              <div class="pz" id="pz-removed" onclick="openCam('removed','Removed asset — serial number')">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+                <p id="pzt-removed">Tap to photograph removed asset</p>
+              </div>
+              <img class="pthumb" id="pt-removed" src="" alt="">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <label>Description of removed asset</label><input type="text" id="ret-desc" placeholder="e.g. Transformer 100kVA">
+        <label>Serial number (if readable)</label><input type="text" id="ret-serial" placeholder="Optional — photo is primary record">
+        <label>Notes</label><textarea id="notes-rep" placeholder="Observations…"></textarea>
+      </div>
+      <div class="notice nw" id="retPendNote" style="display:none;">Return to stores will be required after saving.</div>
+      <button class="btn btn-p mt16" onclick="submitInstall('replace')">Save installation record</button>
+    </div>
+  </div>
+
+  <!-- RETURN -->
+  <div class="scr" id="scr-return">
+    <p class="sh">Check in to stores</p><p class="ss">Return removed asset and confirm condition</p>
+    <div class="notice ni" id="retLinked" style="display:none;"></div>
+    <div class="card">
+      <div class="ct">Asset being returned</div>
+      <label>Item description</label><input type="text" id="cin-desc" placeholder="e.g. Transformer 100kVA">
+      <label>Serial number (if visible)</label><input type="text" id="cin-serial" placeholder="Optional — photo is primary record">
+      <label>Work order / job reference</label><input type="text" id="cin-wo" placeholder="Original work order">
+      <label>Returning technician</label><input type="text" id="cin-tech" placeholder="Name">
+    </div>
+    <div class="card">
+      <div class="ct">Condition assessment</div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="cbtn" id="cop" onclick="setCond('op')">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:block;margin:0 auto 4px;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Operational
+        </button>
+        <button class="cbtn" id="cdmg" onclick="setCond('dmg')">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="display:block;margin:0 auto 4px;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Damaged
+        </button>
+      </div>
+      <div id="dmg-notes" style="display:none;" class="mt12">
+        <label>Damage description</label><textarea id="dmg-txt" placeholder="Describe the damage…"></textarea>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Check-in photo</div>
+      <div class="notice ni">GPS stamp will be applied. This photo is cross-referenced with the on-site removal photo.</div>
+      <div class="pz" id="pz-cin" onclick="openCam('cin','Check-in — returned to stores')">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M6 10h2l2-3h8l2 3h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V12a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.5"/><circle cx="16" cy="17" r="4" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+        <p id="pzt-cin">Tap to capture check-in photo</p>
+      </div>
+      <img class="pthumb" id="pt-cin" src="" alt="">
+      <div id="photo-cmp" style="display:none;">
+        <div class="divider"></div>
+        <p style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Comparison — on-site removal vs stores check-in</p>
+        <div class="pgrid">
+          <div class="pcell"><img id="cmp-rem" src="" alt=""><div class="pclbl">On-site removal</div></div>
+          <div class="pcell" id="cmp-cin-cell"><div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--tx2);text-align:center;padding:8px;">Check-in photo appears here</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <label>Receiving stores officer</label><input type="text" id="cin-officer" placeholder="Name of stores officer">
+      <label>Notes (optional)</label><textarea id="cin-notes" placeholder="Any additional notes…"></textarea>
+    </div>
+    <button class="btn btn-ok mt16" onclick="submitCheckin()">Complete check-in to stores</button>
+  </div>
+
+  <!-- RECORDS -->
+  <div class="scr" id="scr-records">
+    <p class="sh">Records</p><p class="ss">All transactions</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="badge bi" style="cursor:pointer;border:none;font-size:12px;padding:5px 12px;" onclick="filterRecs('all')">All</button>
+        <button class="badge bw" style="cursor:pointer;border:none;font-size:12px;padding:5px 12px;" onclick="filterRecs('issue')">Issued</button>
+        <button class="badge bs" style="cursor:pointer;border:none;font-size:12px;padding:5px 12px;" onclick="filterRecs('install')">Installed</button>
+        <button class="badge bd-" style="cursor:pointer;border:none;font-size:12px;padding:5px 12px;" onclick="filterRecs('checkin')">Returned</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-wa" onclick="shareWhatsApp()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.116.552 4.103 1.518 5.829L.057 23.428a.75.75 0 00.915.915l5.599-1.461A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.715 9.715 0 01-4.964-1.362l-.355-.212-3.679.96.979-3.579-.232-.368A9.715 9.715 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
+          WhatsApp
+        </button>
+        <button class="btn-exp" onclick="openExp()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Export
+        </button>
+      </div>
+    </div>
+    <!-- Storage indicator -->
+    <div class="card" id="storage-card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12px;color:var(--tx2);">Device storage</span>
+        <span style="font-size:12px;font-weight:500;" id="storage-label">0 records</span>
+      </div>
+      <div class="storage-bar-wrap"><div class="storage-bar" id="storage-bar" style="width:0%;"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:11px;color:var(--tx2);" id="storage-age"></span>
+        <button style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;padding:0;" onclick="openDeleteModal()">Clear old records</button>
+      </div>
+    </div>
+    <div class="card" id="recs-list"><div style="text-align:center;padding:24px 0;color:#888;font-size:14px;">No records yet.</div></div>
+    <div id="det-panel" style="display:none;"><div class="card mt12" id="det-content"></div></div>
+  </div>
+
+</div>
+
+<!-- NATIVE CAMERA OVERLAY -->
+<div class="cam-overlay" id="camOverlay">
+  <div class="cam-top">
+    <button class="cam-close" onclick="closeCam()">&#x2715;</button>
+    <div class="cam-top-label" id="camLabel">Photograph item</div>
+    <div style="width:44px;"></div>
+  </div>
+  <div class="cam-viewfinder">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <canvas id="camCanvas" style="display:none;"></canvas>
+    <div class="cam-overlay-ui">
+      <div class="cam-bracket cb-tl"></div><div class="cam-bracket cb-tr"></div>
+      <div class="cam-bracket cb-bl"></div><div class="cam-bracket cb-br"></div>
+      <div class="cam-gps-bar">
+        <div class="gps-dot wait" id="gpsDot"></div>
+        <span class="cam-gps-text" id="gpsText">Acquiring GPS&hellip;</span>
+      </div>
+      <div class="cam-stamp-preview">
+        <p id="stampPreview">Stamp: acquiring location&hellip;</p>
+      </div>
+    </div>
+  </div>
+  <div class="cam-controls">
+    <div style="width:44px;height:44px;"></div>
+    <button class="cam-shutter" id="shutterBtn" onclick="captureFrame()"></button>
+    <button class="cam-flip" onclick="flipCam()" title="Flip camera">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 8a7 7 0 0114 0" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M18 14a7 7 0 01-14 0" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M18 8l2-2-2-2M4 14l-2 2 2 2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Share gate modal (forced) -->
+<div class="mwrap center" id="gateModal">
+  <div class="modal-center">
+    <h2 id="gateTitle">WhatsApp share required</h2>
+    <p id="gateMsg">You have reached 20 records or have records older than 24 hours. You must share your records via WhatsApp before continuing.</p>
+    <div style="background:var(--warn-bg);border:0.5px solid #FAC775;border-radius:var(--rs);padding:12px 14px;font-size:13px;color:var(--warn);margin-bottom:16px;" id="gateDetail"></div>
+    <button class="btn-wa" style="width:100%;justify-content:center;font-size:15px;padding:13px;" onclick="gateShareWhatsApp()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white" style="flex-shrink:0;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.116.552 4.103 1.518 5.829L.057 23.428a.75.75 0 00.915.915l5.599-1.461A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.715 9.715 0 01-4.964-1.362l-.355-.212-3.679.96.979-3.579-.232-.368A9.715 9.715 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>
+      Share now via WhatsApp
+    </button>
+    <p style="font-size:12px;color:var(--tx2);text-align:center;margin-top:10px;margin-bottom:0;">After sending, tap the button below to confirm</p>
+    <button class="btn btn-s mt8" id="gateConfirmBtn" style="display:none;" onclick="gateConfirmed()">I have sent the WhatsApp — continue</button>
+  </div>
+</div>
+
+<!-- Confirm sent modal -->
+<div class="mwrap center" id="confirmSentModal">
+  <div class="modal-center">
+    <h2>Did you send it?</h2>
+    <p>Please confirm you actually sent the WhatsApp message to your supervisor. This unlocks the ability to clear old records.</p>
+    <button class="btn-ok" style="width:100%;font-size:15px;padding:13px;border-radius:var(--rs);border:none;cursor:pointer;font-family:inherit;font-weight:500;" onclick="confirmSent()">Yes, I sent the WhatsApp</button>
+    <button class="btn btn-s mt8" onclick="document.getElementById('confirmSentModal').classList.remove('open')">Cancel — go back</button>
+  </div>
+</div>
+
+<!-- Delete old records modal -->
+<div class="mwrap center" id="deleteModal">
+  <div class="modal-center">
+    <h2>Clear old records</h2>
+    <p id="deleteModalMsg">Records older than 24 hours will be permanently removed from this device. This cannot be undone.</p>
+    <div id="delete-lock-status"></div>
+    <button class="btn btn-s mt12" onclick="document.getElementById('deleteModal').classList.remove('open')">Cancel</button>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div class="mwrap" id="expModal">
+  <div class="modal">
+    <h2>Export records</h2><p>Choose a format. All records and stamped photos are included.</p>
+    <div class="eopt" onclick="expCSV()"><div class="eoic" style="background:#EAF3DE;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="2" width="14" height="16" rx="2" stroke="#3B6D11" stroke-width="1.4"/><path d="M6 7h8M6 10h8M6 13h4" stroke="#3B6D11" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="eotit">CSV spreadsheet</div><div class="eosub">Transaction log — opens in Excel</div></div></div>
+    <div class="eopt" onclick="expJSON()"><div class="eoic" style="background:#E6F1FB;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 7l-2 3 2 3M15 7l2 3-2 3M11 5l-2 10" stroke="#185FA5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="eotit">Full JSON export</div><div class="eosub">Complete data including photos</div></div></div>
+    <div class="eopt" onclick="expHTML()"><div class="eoic" style="background:#FAEEDA;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="4" y="4" width="12" height="12" rx="2" stroke="#854F0B" stroke-width="1.4"/><path d="M7 8h6M7 11h4" stroke="#854F0B" stroke-width="1.4" stroke-linecap="round"/></svg></div><div><div class="eotit">HTML report</div><div class="eosub">Printable with stamped photos</div></div></div>
+    <div class="eopt" onclick="shareWhatsApp();closeExp()"><div class="eoic" style="background:#dcfce7;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.116.552 4.103 1.518 5.829L.057 23.428a.75.75 0 00.915.915l5.599-1.461A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.715 9.715 0 01-4.964-1.362l-.355-.212-3.679.96.979-3.579-.232-.368A9.715 9.715 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg></div><div><div class="eotit">Share via WhatsApp</div><div class="eosub">Send a text summary of all records</div></div></div>
+    <button class="btn btn-s mt12" onclick="closeExp()">Cancel</button>
+  </div>
+</div>
+
+<script>
+const SK='mst_v4_recs', PK='mst_v4_pend';
+let S={
+  recs:[], pend:[], photos:{}, camType:null, camLabel:null,
+  cond:null, itype:null, online:navigator.onLine,
+  gps:null, gpsErr:false, camStream:null, facingMode:'environment',
+  pendInstId:null
+};
+
+function load(){try{const r=localStorage.getItem(SK);if(r)S.recs=JSON.parse(r);const p=localStorage.getItem(PK);if(p)S.pend=JSON.parse(p);}catch(e){}}
+function save(){try{localStorage.setItem(SK,JSON.stringify(S.recs));localStorage.setItem(PK,JSON.stringify(S.pend));}catch(e){}}
+function addRec(r){S.recs.unshift(r);if(!S.online)S.pend.push(r.id);save();updateRetNav();updateStorageIndicator();}
+
+window.addEventListener('online',()=>{S.online=true;updateSync();trySync();});
+window.addEventListener('offline',()=>{S.online=false;updateSync();});
+function updateSync(){
+  const d=document.getElementById('sdot'),l=document.getElementById('slbl'),b=document.getElementById('offBanner');
+  if(S.online){d.className='sdot';l.textContent='Online';b.style.display='none';trySync();}
+  else{d.className='sdot off';l.textContent='Offline';b.style.display='block';}
+}
+function trySync(){
+  if(!S.online||!S.pend.length)return;
+  const d=document.getElementById('sdot'),l=document.getElementById('slbl');
+  d.className='sdot syn';l.textContent='Syncing\u2026';
+  setTimeout(()=>{S.pend=[];save();d.className='sdot';l.textContent='Synced';},1800);
+}
+
+function startGPS(){
+  S.gps=null;S.gpsErr=false;
+  setGPSUI('wait','Acquiring GPS\u2026');
+  if(!navigator.geolocation){setGPSUI('err','GPS not available');return;}
+  navigator.geolocation.getCurrentPosition(
+    pos=>{S.gps={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};setGPSUI('got','GPS: '+S.gps.lat.toFixed(5)+', '+S.gps.lng.toFixed(5)+' (\xb1'+S.gps.acc+'m)');updateStampPreview();},
+    ()=>{S.gpsErr=true;setGPSUI('err','GPS unavailable \u2014 time-stamped only');updateStampPreview();},
+    {enableHighAccuracy:true,timeout:15000}
+  );
+}
+function setGPSUI(st,tx){document.getElementById('gpsDot').className='gps-dot '+st;document.getElementById('gpsText').textContent=tx;}
+function updateStampPreview(){
+  const now=new Date();
+  const ds=now.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})+' '+now.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
+  const parts=[(S.gps?'GPS: '+S.gps.lat.toFixed(5)+'\xb0, '+S.gps.lng.toFixed(5)+'\xb0':'GPS: Unavailable'),ds,(S.camLabel||'Photo')];
+  const ct=S.camType;
+  if(ct==='issue'){
+    const rn=(document.getElementById('reqNum')||{}).value||'';
+    const sn=(document.getElementById('serialNum')||{}).value||'';
+    if(rn.trim()) parts.push('Req: '+rn.trim());
+    if(sn.trim()) parts.push('Serial: '+sn.trim());
+  } else if(ct==='inst-new'||ct==='exist'||ct==='inst-rep'){
+    const rn=(document.getElementById('inst-req')||{}).value||'';
+    if(rn.trim()) parts.push('Req: '+rn.trim());
+  } else if(ct==='removed'){
+    const rn=(document.getElementById('inst-req')||{}).value||'';
+    const sn=(document.getElementById('ret-serial')||{}).value||'';
+    if(rn.trim()) parts.push('Req: '+rn.trim());
+    if(sn.trim()) parts.push('Serial: '+sn.trim());
+  } else if(ct==='cin'){
+    const sn=(document.getElementById('cin-serial')||{}).value||'';
+    const wo=(document.getElementById('cin-wo')||{}).value||'';
+    if(sn.trim()) parts.push('Serial: '+sn.trim());
+    if(wo.trim()) parts.push('Job: '+wo.trim());
+  }
+  document.getElementById('stampPreview').textContent='Stamp: '+parts.join(' | ');
+}
+
+async function openCam(type,label){
+  S.camType=type;S.camLabel=label;
+  document.getElementById('camLabel').textContent=label;
+  document.getElementById('camOverlay').classList.add('open');
+  startGPS();
+  await startStream();
+  setInterval(updateStampPreview,5000);
+}
+async function startStream(){
+  if(S.camStream)S.camStream.getTracks().forEach(t=>t.stop());
+  try{
+    S.camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:S.facingMode,width:{ideal:1920},height:{ideal:1080}},audio:false});
+    document.getElementById('camVideo').srcObject=S.camStream;
+  }catch(e){
+    document.getElementById('camOverlay').classList.remove('open');
+    if(S.camStream){S.camStream.getTracks().forEach(t=>t.stop());S.camStream=null;}
+    alert('Camera access was denied.\nPlease allow camera permission in your browser settings.');
+  }
+}
+async function flipCam(){S.facingMode=S.facingMode==='environment'?'user':'environment';await startStream();}
+function closeCam(){
+  if(S.camStream){S.camStream.getTracks().forEach(t=>t.stop());S.camStream=null;}
+  document.getElementById('camOverlay').classList.remove('open');
+}
+function captureFrame(){
+  const vid=document.getElementById('camVideo');
+  const cvs=document.getElementById('camCanvas');
+  const W=vid.videoWidth||1280,H=vid.videoHeight||720;
+  cvs.width=W;cvs.height=H;
+  const ctx=cvs.getContext('2d');
+  ctx.drawImage(vid,0,0,W,H);
+  const now=new Date();
+  const ds=now.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})+' '+now.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const lines=[];
+  lines.push(S.gps?'GPS: '+S.gps.lat.toFixed(5)+'\xb0, '+S.gps.lng.toFixed(5)+'\xb0 (\xb1'+S.gps.acc+'m)':'GPS: Unavailable');
+  lines.push(ds);
+  lines.push(S.camLabel||'Photo');
+  // Context-specific stamp lines
+  const ct=S.camType;
+  if(ct==='issue'){
+    const rn=document.getElementById('reqNum').value.trim();
+    const sn=document.getElementById('serialNum').value.trim();
+    if(rn) lines.push('Req: '+rn);
+    if(sn) lines.push('Serial: '+sn);
+  } else if(ct==='inst-new'){
+    const rn=document.getElementById('inst-req').value.trim();
+    if(rn) lines.push('Req: '+rn);
+  } else if(ct==='exist'||ct==='inst-rep'){
+    const rn=document.getElementById('inst-req').value.trim();
+    if(rn) lines.push('Req: '+rn);
+  } else if(ct==='removed'){
+    const rn=document.getElementById('inst-req').value.trim();
+    const sn=document.getElementById('ret-serial').value.trim();
+    if(rn) lines.push('Req: '+rn);
+    if(sn) lines.push('Serial: '+sn);
+  } else if(ct==='cin'){
+    const sn=document.getElementById('cin-serial').value.trim();
+    const wo=document.getElementById('cin-wo').value.trim();
+    if(sn) lines.push('Serial: '+sn);
+    if(wo) lines.push('Job: '+wo);
+  }
+  lines.push('Municipal Stores Tracker');
+  const fs=Math.max(14,Math.round(W/55));
+  const barH=lines.length*(fs+8)+12;
+  ctx.fillStyle='rgba(0,0,0,0.72)';
+  ctx.fillRect(0,H-barH,W,barH);
+  ctx.font=fs+'px monospace';
+  lines.forEach((line,i)=>{
+    ctx.fillStyle=i===0&&S.gps?'#97C459':i===0?'#EF9F27':'rgba(255,255,255,0.92)';
+    ctx.fillText(line,12,H-barH+fs+4+(i*(fs+8)));
+  });
+  const data=cvs.toDataURL('image/jpeg',0.88);
+  S.photos[S.camType]=data;
+  markCap(S.camType);
+  updateSteps();
+  updateRetCompare();
+  closeCam();
+}
+
+function markCap(type){
+  const z=document.getElementById('pz-'+type),tx=document.getElementById('pzt-'+type),th=document.getElementById('pt-'+type);
+  if(z)z.classList.add('cap');
+  if(tx)tx.textContent='Photo captured \u2014 GPS, date & reference data stamped. Tap to retake';
+  if(th&&S.photos[type]){th.src=S.photos[type];th.classList.add('vis');}
+}
+function resetCap(type,label){
+  const z=document.getElementById('pz-'+type),tx=document.getElementById('pzt-'+type),th=document.getElementById('pt-'+type);
+  if(z)z.classList.remove('cap');
+  if(tx)tx.textContent=label;
+  if(th){th.src='';th.classList.remove('vis');}
+  S.photos[type]=null;
+}
+function updateRetCompare(){
+  if(S.camType==='cin'&&S.photos.cin){
+    const cell=document.getElementById('cmp-cin-cell');
+    if(document.getElementById('photo-cmp').style.display!=='none')
+      cell.innerHTML='<img src="'+S.photos.cin+'" style="width:100%;height:100%;object-fit:cover;"><div class="pclbl">Check-in (stores)</div>';
+  }
+}
+function updateSteps(){
+  const h1=!!S.photos['exist'],h2=!!S.photos['inst-rep'],h3=!!S.photos['removed'];
+  function ss(n,done,active,txt){
+    const sn=document.getElementById('sn'+n),sb=document.getElementById('sb'+n);
+    sn.className='snum'+(done?' dn':active?' ac':'');sn.textContent=done?'\u2713':n;
+    sb.className='badge '+(done?'bs':active?'bw':'');
+    if(!done&&!active)sb.style.cssText='background:var(--bg2);color:var(--tx2)';else sb.style.cssText='';
+    sb.textContent=txt;
+  }
+  ss(1,h1,!h1,h1?'Done':'Required');
+  ss(2,h2,h1&&!h2,h2?'Done':h1?'Required':'After step 1');
+  ss(3,h3,h2&&!h3,h3?'Done':h2?'Required':'After step 2');
+  document.getElementById('retPendNote').style.display=h3?'block':'none';
+}
+
+function setIType(t){
+  S.itype=t;
+  document.getElementById('it-new').className='itype-btn'+(t==='new'?' sel-new':'');
+  document.getElementById('it-rep').className='itype-btn'+(t==='replace'?' sel-rep':'');
+  document.getElementById('sec-new').style.display=t==='new'?'block':'none';
+  document.getElementById('sec-rep').style.display=t==='replace'?'block':'none';
+}
+function lookupReq(){
+  const q=document.getElementById('inst-req').value.trim();
+  const r=S.recs.find(x=>x.type==='issue'&&x.reqNum===q);
+  if(r){document.getElementById('lu-item').textContent=r.itemDesc;document.getElementById('lu-tech').textContent=r.techName;document.getElementById('lu-wo').textContent=r.workOrder;document.getElementById('lu-loc').textContent=r.location;document.getElementById('inst-lu').style.display='block';}
+  else alert('No issued record found for: '+q);
+}
+
+function submitIssue(){if(!checkGateBeforeAction(submitIssue))return;
+  const rn=document.getElementById('reqNum').value.trim(),tn=document.getElementById('techName').value.trim(),id=document.getElementById('itemDesc').value.trim();
+  if(!rn||!tn||!id){alert('Please fill in Requisition number, Technician name, and Item description.');return;}
+  if(!S.photos.issue){alert('A receipt photo is required.');return;}
+  const rec={id:'ISS-'+Date.now(),type:'issue',reqNum:rn,techName:tn,issueDate:document.getElementById('issueDate').value,workOrder:document.getElementById('workOrder').value,itemDesc:id,stockCode:document.getElementById('stockCode').value,serialNum:document.getElementById('serialNum').value,location:document.getElementById('location').value,storesOfficer:document.getElementById('storesOfficer').value,notes:document.getElementById('issueNotes').value,photo:S.photos.issue,timestamp:new Date().toISOString()};
+  addRec(rec);
+  resetCap('issue','Tap to capture \u2014 GPS stamp will be applied');
+  ['reqNum','techName','workOrder','itemDesc','stockCode','serialNum','location','storesOfficer','issueNotes'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('issueDate').value=new Date().toISOString().slice(0,10);
+  alert('Issue saved. Ref: '+rec.id+(S.online?'\nSynced.':'\nSaved offline.'));
+  goTo('records');
+}
+
+function submitInstall(type){if(!checkGateBeforeAction(function(){submitInstall(type);}))return;
+  const rn=document.getElementById('inst-req').value.trim();
+  if(!rn){alert('Please enter the requisition number.');return;}
+  if(type==='new'){
+    if(!S.photos['inst-new']){alert('As-installed photo required.');return;}
+    const rec={id:'INS-'+Date.now(),type:'install',installType:'new',reqNum:rn,notes:document.getElementById('notes-new').value,photo:S.photos['inst-new'],timestamp:new Date().toISOString()};
+    addRec(rec);
+    resetCap('inst-new','Tap to capture as-installed photo');
+    document.getElementById('notes-new').value='';S.itype=null;
+    document.getElementById('it-new').className='itype-btn';document.getElementById('sec-new').style.display='none';document.getElementById('inst-lu').style.display='none';document.getElementById('inst-req').value='';
+    alert('Installation saved. Ref: '+rec.id+'\nJob complete \u2014 no return required.');
+    goTo('records');
+  } else {
+    if(!S.photos['exist']){alert('Step 1: Photo of existing asset required.');return;}
+    if(!S.photos['inst-rep']){alert('Step 2: As-installed photo required.');return;}
+    if(!S.photos['removed']){alert('Step 3: Photo of removed asset required.');return;}
+    const rec={id:'INS-'+Date.now(),type:'install',installType:'replace',reqNum:rn,notes:document.getElementById('notes-rep').value,photo:S.photos['inst-rep'],existingPhoto:S.photos['exist'],removedPhoto:S.photos['removed'],retDesc:document.getElementById('ret-desc').value,retSerial:document.getElementById('ret-serial').value,timestamp:new Date().toISOString(),returnComplete:false};
+    addRec(rec);
+    resetCap('exist','Tap to photograph existing asset');resetCap('inst-rep','Tap to photograph new item');resetCap('removed','Tap to photograph removed asset');
+    ['ret-desc','ret-serial','notes-rep'].forEach(i=>document.getElementById(i).value='');
+    S.itype=null;document.getElementById('it-rep').className='itype-btn';document.getElementById('sec-rep').style.display='none';document.getElementById('inst-lu').style.display='none';document.getElementById('inst-req').value='';document.getElementById('retPendNote').style.display='none';
+    updateSteps();updateRetNav();
+    alert('Installation saved. Ref: '+rec.id+'\nReturn to stores is now required \u2014 see Return tab.');
+    goTo('records');
+  }
+}
+
+function setCond(v){
+  S.cond=v;
+  document.getElementById('cop').className='cbtn'+(v==='op'?' op':'');
+  document.getElementById('cdmg').className='cbtn'+(v==='dmg'?' dmg':'');
+  document.getElementById('dmg-notes').style.display=v==='dmg'?'block':'none';
+}
+
+function submitCheckin(){if(!checkGateBeforeAction(submitCheckin))return;
+  if(!S.photos.cin){alert('Check-in photo required.');return;}
+  if(!S.cond){alert('Please select item condition.');return;}
+  const d=document.getElementById('cin-desc').value.trim();
+  if(!d){alert('Please enter item description.');return;}
+  const rec={id:'CHK-'+Date.now(),type:'checkin',linkedInstallId:S.pendInstId||null,serial:document.getElementById('cin-serial').value,desc:d,workOrder:document.getElementById('cin-wo').value,tech:document.getElementById('cin-tech').value,officer:document.getElementById('cin-officer').value,condition:S.cond==='op'?'operational':'damaged',damageNotes:S.cond==='dmg'?document.getElementById('dmg-txt').value:'',notes:document.getElementById('cin-notes').value,photo:S.photos.cin,timestamp:new Date().toISOString()};
+  addRec(rec);
+  if(S.pendInstId){const inst=S.recs.find(r=>r.id===S.pendInstId);if(inst)inst.returnComplete=true;save();}
+  resetCap('cin','Tap to capture check-in photo');
+  S.cond=null;S.pendInstId=null;
+  document.getElementById('cop').className='cbtn';document.getElementById('cdmg').className='cbtn';document.getElementById('dmg-notes').style.display='none';document.getElementById('photo-cmp').style.display='none';document.getElementById('retLinked').style.display='none';
+  ['cin-serial','cin-desc','cin-wo','cin-tech','cin-officer','cin-notes','dmg-txt'].forEach(i=>document.getElementById(i).value='');
+  updateRetNav();
+  alert('Check-in complete. Ref: '+rec.id+'\nJob fully closed.');
+  goTo('records');
+}
+
+function updateRetNav(){
+  const open=S.recs.find(r=>r.type==='install'&&r.installType==='replace'&&!r.returnComplete&&!S.recs.find(c=>c.type==='checkin'&&c.linkedInstallId===r.id));
+  const btn=document.getElementById('navReturn'),lbl=document.getElementById('retNavLbl');
+  if(open){
+    btn.className='nb req';lbl.innerHTML='Return <span class="ndot"></span>';S.pendInstId=open.id;
+    document.getElementById('cin-wo').value=open.reqNum||'';document.getElementById('cin-desc').value=open.retDesc||'';document.getElementById('cin-serial').value=open.retSerial||'';
+    if(open.removedPhoto){document.getElementById('photo-cmp').style.display='block';document.getElementById('cmp-rem').src=open.removedPhoto;}
+    const n=document.getElementById('retLinked');n.style.display='block';n.textContent='Return required for job '+open.reqNum+' \u2014 '+(open.retDesc||'removed asset')+'. On-site removal photo shown for reference.';
+  } else {
+    btn.className='nb';lbl.textContent='Return';S.pendInstId=null;
+  }
+}
+
+function goTo(tab){
+  ['new','install','return','records'].forEach(t=>{document.getElementById('scr-'+t).classList.remove('vis');const b=document.getElementById('nav'+t.charAt(0).toUpperCase()+t.slice(1));if(b)b.classList.remove('act');});
+  document.getElementById('scr-'+tab).classList.add('vis');
+  const ab=document.getElementById('nav'+tab.charAt(0).toUpperCase()+tab.slice(1));if(ab)ab.classList.add('act');
+  const titles={new:'Issue item from stores',install:'Record installation',return:'Check in to stores',records:'Transaction records'};
+  document.getElementById('hTitle').textContent=titles[tab];
+  if(tab==='records')renderRecs('all');
+}
+
+const svgi={issue:'<path d="M8 3H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V8" stroke="white" stroke-width="1.4" stroke-linecap="round"/><path d="M12 3h5v5" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 3l-7 7" stroke="white" stroke-width="1.4" stroke-linecap="round"/>',install:'<path d="M8 10l4 4 4-4M12 4v10" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17h12" stroke="white" stroke-width="1.4" stroke-linecap="round"/>',checkin:'<path d="M14 3H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2z" stroke="white" stroke-width="1.4"/><path d="M8 10l2 2 4-4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'};
+const ic={issue:'#185FA5',install:'#3B6D11',checkin:'#A32D2D'};
+const tl={issue:'Issued',install:'Installed',checkin:'Returned'};
+const bc={issue:'bi',install:'bs',checkin:'bd-'};
+
+function filterRecs(f){renderRecs(f);} 
+function renderRecs(f){
+  const list=document.getElementById('recs-list');
+  const recs=f==='all'?S.recs:S.recs.filter(r=>r.type===f);
+  if(!recs.length){list.innerHTML='<div style="text-align:center;padding:24px 0;color:#888;font-size:14px;">No records match this filter.</div>';return;}
+  list.innerHTML=recs.map(r=>{
+    const name=r.itemDesc||r.desc||'Item';
+    const sub=r.reqNum||r.workOrder||r.serial||'';
+    const dt=new Date(r.timestamp).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});
+    const needsRet=r.type==='install'&&r.installType==='replace'&&!r.returnComplete;
+    const subtype=r.type==='install'?(r.installType==='new'?' \u00b7 New':' \u00b7 Replacement'):'';
+    return '<div class="ri" onclick="showDet(\''+r.id+'\')">'+'<div class="ric" style="background:'+ic[r.type]+'"><svg width="20" height="20" viewBox="0 0 20 20" fill="none">'+svgi[r.type]+'</svg></div>'+'<div class="rib"><div class="rin">'+name+(needsRet?'<span class="pb" style="background:var(--danger-bg);color:var(--danger);">Return due</span>':'')+'</div><div class="ris">'+(sub?sub+' \u00b7 ':'')+dt+subtype+'</div></div>'+'<span class="badge '+bc[r.type]+'">'+tl[r.type]+'</span></div>';
+  }).join('');
+}
+
+function showDet(id){
+  const r=S.recs.find(x=>x.id===id);if(!r)return;
+  const tlab={issue:'Issue record',install:'Installation record',checkin:'Check-in record'};
+  let rows=[];
+  if(r.type==='issue')rows=[['Item',r.itemDesc],['Stock code',r.stockCode],['Serial',r.serialNum],['Req #',r.reqNum],['Technician',r.techName],['Work order',r.workOrder],['Location',r.location],['Officer',r.storesOfficer],['Date',r.issueDate],['Notes',r.notes]];
+  else if(r.type==='install')rows=[['Req #',r.reqNum],['Type',r.installType==='new'?'New installation':'Asset replacement'],['Removed asset',r.retDesc||''],['Removed serial',r.retSerial||''],['Return status',r.installType==='replace'?(r.returnComplete?'Returned to stores':'Pending return'):'N/A'],['Notes',r.notes]];
+  else rows=[['Item',r.desc],['Serial',r.serial],['Work order',r.workOrder],['Technician',r.tech],['Officer',r.officer],['Condition',r.condition?r.condition.charAt(0).toUpperCase()+r.condition.slice(1):''],['Damage notes',r.damageNotes||''],['Notes',r.notes]];
+  const rh=rows.filter(([,v])=>v).map(([l,v])=>'<div class="ir"><span class="l">'+l+'</span><span class="v">'+v+'</span></div>').join('');
+  const photos=[];
+  if(r.existingPhoto)photos.push([r.existingPhoto,'Existing asset (as found)']);
+  if(r.photo)photos.push([r.photo,r.type==='issue'?'Receipt photo':r.type==='install'?'New item as installed':'Check-in photo']);
+  if(r.removedPhoto)photos.push([r.removedPhoto,'Removed asset']);
+  const ph=photos.length?'<div class="divider"></div><div class="pgrid">'+photos.map(([s,l])=>'<div class="pcell"><img src="'+s+'" alt="'+l+'"><div class="pclbl">'+l+'</div></div>').join('')+'</div>':'';
+  document.getElementById('det-content').innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><span style="font-size:14px;font-weight:500;">'+tlab[r.type]+'</span><span class="badge '+bc[r.type]+'">'+r.id+'</span></div>'+rh+ph+'<button class="btn btn-s btn-sm" style="margin-top:12px;" onclick="document.getElementById(\'det-panel\').style.display=\'none\'">Close</button>';
+  document.getElementById('det-panel').style.display='block';
+  document.getElementById('det-panel').scrollIntoView({behavior:'smooth'});
+}
+
+function openExp(){document.getElementById('expModal').classList.add('open');}
+function closeExp(){document.getElementById('expModal').classList.remove('open');}
+function expCSV(){
+  closeExp();
+  const cols=['ID','Type','Install type','Timestamp','Req #','Technician','Work order','Item','Stock code','Serial','Location','Officer','Condition','Damage notes','Removed asset','Removed serial','Return complete','Notes'];
+  const rows=S.recs.map(r=>[r.id,r.type,r.installType||'',r.timestamp,r.reqNum||'',r.techName||r.tech||'',r.workOrder||'',r.itemDesc||r.desc||'',r.stockCode||'',r.serialNum||r.serial||'',r.location||'',r.storesOfficer||r.officer||'',r.condition||'',r.damageNotes||'',r.retDesc||'',r.retSerial||'',r.returnComplete?'Yes':r.installType==='replace'?'No':'N/A',r.notes||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  dlFile('stores-tracker-export.csv','text/csv',[cols.join(','),...rows].join('\n'));
+}
+function expJSON(){closeExp();dlFile('stores-tracker-export.json','application/json',JSON.stringify(S.recs,null,2));}
+function expHTML(){
+  closeExp();
+  const ds=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const tlab={issue:'Issue',install:'Installation',checkin:'Check-in'};
+  const rows=S.recs.map(r=>{
+    const photos=[];
+    if(r.existingPhoto)photos.push(['Existing asset',r.existingPhoto]);
+    if(r.photo)photos.push([r.type==='issue'?'Receipt':r.type==='install'?'As installed':'Check-in',r.photo]);
+    if(r.removedPhoto)photos.push(['Removed asset',r.removedPhoto]);
+    const fields=r.type==='issue'?[['Req #',r.reqNum],['Technician',r.techName],['Work order',r.workOrder],['Item',r.itemDesc],['Stock code',r.stockCode],['Serial',r.serialNum],['Location',r.location],['Officer',r.storesOfficer]]:r.type==='install'?[['Req #',r.reqNum],['Type',r.installType==='new'?'New installation':'Asset replacement'],['Removed asset',r.retDesc],['Return status',r.returnComplete?'Returned':'Pending']]:[['Item',r.desc],['Serial',r.serial],['Work order',r.workOrder],['Technician',r.tech],['Condition',r.condition],['Damage notes',r.damageNotes]];
+    return '<div style="page-break-inside:avoid;border:1px solid #ddd;border-radius:8px;padding:16px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><strong>'+(r.itemDesc||r.desc||'Item')+'</strong><span style="font-size:12px;background:#eee;padding:3px 8px;border-radius:20px;">'+tlab[r.type]+' \u00b7 '+r.id+'</span></div><table style="width:100%;font-size:13px;border-collapse:collapse;"><tr><td style="color:#666;padding:4px 8px 4px 0;width:38%">Timestamp</td><td>'+new Date(r.timestamp).toLocaleString('en-ZA')+'</td></tr>'+fields.filter(([,v])=>v).map(([l,v])=>'<tr><td style="color:#666;padding:4px 8px 4px 0;">'+l+'</td><td>'+v+'</td></tr>').join('')+'</table>'+photos.map(([l,s])=>'<div style="margin-top:12px;"><div style="font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;">'+l+'</div><img src="'+s+'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:6px;border:1px solid #eee;"></div>').join('')+'</div>';
+  }).join('');
+  dlFile('stores-tracker-report.html','text/html','<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Stores Tracker Report</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#111;}h1{font-size:22px;font-weight:500;}.sub{font-size:13px;color:#666;margin-bottom:24px;}@media print{body{margin:0}}</style></head><body><h1>Municipal Stores Tracker</h1><p class="sub">Exported '+ds+' \u00b7 '+S.recs.length+' record(s)</p>'+rows+'</body></html>');
+}
+function shareWhatsApp(){
+  var now=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});
+  var tl={issue:'Issued',install:'Installed',checkin:'Returned'};
+  var msg='*Municipal Stores Tracker*\n';
+  msg+='Date: '+now+'\n';
+  msg+='Total records: '+S.recs.length+'\n\n';
+  var pendingRet=S.recs.filter(function(r){return r.type==='install'&&r.installType==='replace'&&!r.returnComplete;});
+  if(pendingRet.length>0){
+    msg+='WARNING - Pending returns: '+pendingRet.length+'\n';
+    pendingRet.forEach(function(r){msg+='  - '+(r.retDesc||'Item')+' ('+r.reqNum+')\n';});
+    msg+='\n';
+  }
+  msg+='*Recent transactions:*\n';
+  var recent=S.recs.slice(0,15);
+  recent.forEach(function(r){
+    var name=r.itemDesc||r.desc||'Item';
+    var ref=r.reqNum||r.workOrder||r.serial||'';
+    var dt=new Date(r.timestamp).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});
+    var typ=tl[r.type]||r.type;
+    msg+='['+typ+'] '+name+(ref?' | Ref: '+ref:'')+' | '+dt+'\n';
+  });
+  if(S.recs.length>15)msg+='...and '+(S.recs.length-15)+' more.\n';
+  msg+='\n_Sent from Municipal Stores Tracker_';
+  var url='https://wa.me/?text='+encodeURIComponent(msg);
+  window.open(url,'_blank');
+}
+function dlFile(n,m,c){const b=new Blob([c],{type:m});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+
+document.getElementById('expModal').addEventListener('click',function(e){if(e.target===this)closeExp();});
+load();updateSync();updateRetNav();
+document.getElementById('issueDate').value=new Date().toISOString().slice(0,10);
+checkGateOnLoad();
+updateStorageIndicator();
+
+// ── GATE & DATA GOVERNANCE ────────────────────────────────────────────────────
+var RECORD_THRESHOLD=20;
+var S_shared=false; // tracks if share confirmed this session
+var S_gateCallback=null; // what to do after gate is cleared
+
+function hasOldRecords(){
+  var now=Date.now();
+  var h24=24*60*60*1000;
+  return S.recs.some(function(r){return (now-new Date(r.timestamp).getTime())>h24;});
+}
+
+function checkGateOnLoad(){
+  if(!S.recs.length) return;
+  var old=hasOldRecords();
+  var full=S.recs.length>=RECORD_THRESHOLD;
+  if(old||full){
+    openGate(old,full,null);
+  }
+}
+
+function checkGateBeforeAction(callback){
+  var old=hasOldRecords();
+  var full=S.recs.length>=RECORD_THRESHOLD;
+  if(old||full){
+    S_gateCallback=callback;
+    openGate(old,full,callback);
+    return false;
+  }
+  return true;
+}
+
+function openGate(old,full,callback){
+  var reasons=[];
+  if(full) reasons.push('You have '+S.recs.length+' records saved (limit: '+RECORD_THRESHOLD+').');
+  if(old) reasons.push('You have records older than 24 hours on this device.');
+  document.getElementById('gateDetail').textContent=reasons.join(' ');
+  if(full&&old) document.getElementById('gateMsg').textContent='Your record count has reached the limit and you have records older than 24 hours. Share via WhatsApp before continuing.';
+  else if(full) document.getElementById('gateMsg').textContent='You have reached '+RECORD_THRESHOLD+' records. Share your records via WhatsApp before adding new ones.';
+  else document.getElementById('gateMsg').textContent='You have records older than 24 hours on this device. Please share them via WhatsApp before continuing.';
+  document.getElementById('gateConfirmBtn').style.display='none';
+  document.getElementById('gateModal').classList.add('open');
+}
+
+function gateShareWhatsApp(){
+  // Open WhatsApp then show confirm button
+  shareWhatsApp();
+  setTimeout(function(){
+    document.getElementById('gateConfirmBtn').style.display='block';
+  },1500);
+}
+
+function gateConfirmed(){
+  // Show the confirm-sent modal for double confirmation
+  document.getElementById('gateModal').classList.remove('open');
+  document.getElementById('confirmSentModal').classList.add('open');
+}
+
+function confirmSent(){
+  document.getElementById('confirmSentModal').classList.remove('open');
+  S_shared=true;
+  // Auto-delete records older than 24h
+  var now=Date.now();
+  var h24=24*60*60*1000;
+  var before=S.recs.length;
+  S.recs=S.recs.filter(function(r){return (now-new Date(r.timestamp).getTime())<=h24;});
+  var removed=before-S.recs.length;
+  save();
+  updateStorageIndicator();
+  // Proceed with any blocked action
+  if(S_gateCallback){
+    var cb=S_gateCallback;
+    S_gateCallback=null;
+    cb();
+  } else {
+    if(removed>0) alert(removed+' record(s) older than 24 hours have been cleared from this device.');
+    renderRecs('all');
+  }
+}
+
+// ── STORAGE INDICATOR ────────────────────────────────────────────────────────
+function updateStorageIndicator(){
+  var count=S.recs.length;
+  var pct=Math.min(100,Math.round((count/RECORD_THRESHOLD)*100));
+  var bar=document.getElementById('storage-bar');
+  var lbl=document.getElementById('storage-label');
+  var age=document.getElementById('storage-age');
+  if(!bar) return;
+  bar.style.width=pct+'%';
+  bar.className='storage-bar'+(pct>=100?' full':pct>=70?' warn':'');
+  lbl.textContent=count+' / '+RECORD_THRESHOLD+' records';
+  lbl.style.color=pct>=100?'var(--danger)':pct>=70?'#854F0B':'var(--tx2)';
+  if(count>0){
+    var oldest=S.recs.reduce(function(a,b){return new Date(a.timestamp)<new Date(b.timestamp)?a:b;});
+    var hrs=Math.floor((Date.now()-new Date(oldest.timestamp).getTime())/3600000);
+    if(hrs>=24) age.style.color='var(--danger)';
+    else age.style.color='var(--tx2)';
+    age.textContent='Oldest: '+(hrs<1?'<1h':hrs+'h')+' ago'+(hrs>=24?' — share required':'');
+  } else {
+    age.textContent='No records yet';
+  }
+}
+
+// ── DELETE MODAL ─────────────────────────────────────────────────────────────
+function openDeleteModal(){
+  var now=Date.now();
+  var h24=24*60*60*1000;
+  var oldRecs=S.recs.filter(function(r){return (now-new Date(r.timestamp).getTime())>h24;});
+  var msg=oldRecs.length>0
+    ? oldRecs.length+' record(s) older than 24 hours will be permanently removed from this device.'
+    : 'No records older than 24 hours found.';
+  document.getElementById('deleteModalMsg').textContent=msg;
+  var lockDiv=document.getElementById('delete-lock-status');
+  if(oldRecs.length===0){
+    lockDiv.innerHTML='<div class="del-locked"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Nothing to delete</div>';
+  } else if(!S_shared){
+    lockDiv.innerHTML='<div class="del-locked"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Share via WhatsApp first to unlock delete</div><button class="btn-wa" style="width:100%;justify-content:center;margin-top:10px;font-size:14px;padding:11px;display:flex;align-items:center;gap:8px;" onclick="manualShareThenDelete()"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.116.552 4.103 1.518 5.829L.057 23.428a.75.75 0 00.915.915l5.599-1.461A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.715 9.715 0 01-4.964-1.362l-.355-.212-3.679.96.979-3.579-.232-.368A9.715 9.715 0 012.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/></svg>Share via WhatsApp first</button>';
+  } else {
+    lockDiv.innerHTML='<div class="del-unlocked" onclick="executeDelete()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6 5V3h4v2M7 8v4M9 8v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><rect x="2" y="5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg> Tap to delete '+oldRecs.length+' old record(s)</div>';
+  }
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function manualShareThenDelete(){
+  shareWhatsApp();
+  setTimeout(function(){
+    document.getElementById('deleteModal').classList.remove('open');
+    document.getElementById('confirmSentModal').classList.add('open');
+    S_gateCallback=function(){openDeleteModal();};
+  },1500);
+}
+
+function executeDelete(){
+  var now=Date.now();
+  var h24=24*60*60*1000;
+  var before=S.recs.length;
+  S.recs=S.recs.filter(function(r){return (now-new Date(r.timestamp).getTime())<=h24;});
+  var removed=before-S.recs.length;
+  S_shared=false;
+  save();
+  document.getElementById('deleteModal').classList.remove('open');
+  updateStorageIndicator();
+  renderRecs('all');
+  alert(removed+' old record(s) removed from this device.');
+}
+</script>
+</body>
+</html>
