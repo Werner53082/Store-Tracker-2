@@ -259,13 +259,13 @@ input:checked+.tslider:before{transform:translateX(19px);}
     <div style="font-size:12px;color:var(--tx2);margin-bottom:18px;">Enter your employee number and PIN</div>
 
     <label>Employee number</label>
-    <input type="text" id="loginEmpNo" placeholder="e.g. EMP-001" autocomplete="username"
+    <input type="text" id="loginEmpNo" placeholder="e.g. EMP-001" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" name="fms-emp-no"
       onkeydown="if(event.key==='Enter')document.getElementById('loginPin').focus()">
 
     <label style="margin-top:12px;">PIN</label>
     <div style="position:relative;">
       <input type="password" id="loginPin" placeholder="6-digit PIN" maxlength="6"
-        inputmode="numeric" pattern="[0-9]*" autocomplete="current-password"
+        inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" name="fms-pin-entry"
         onkeydown="if(event.key==='Enter')login()"
         oninput="this.value=this.value.replace(/[^0-9]/g,'')"
         style="padding-right:44px;">
@@ -984,6 +984,58 @@ input:checked+.tslider:before{transform:translateX(19px);}
       </div>
     </div>
 
+    <!-- ── REPORTS ── -->
+    <div class="screen" id="scr-reports">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <p class="sh">Reports</p>
+        <button class="btn btn-s btn-sm" onclick="goHome()">&#8592; Dashboard</button>
+      </div>
+      <p class="ss">Download as Excel (.xlsx)</p>
+
+      <div class="card">
+        <div class="card-title">Open jobs — all ages</div>
+        <div id="rpt-open-count" style="font-size:12px;color:var(--tx2);margin-bottom:8px;"></div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Every job not yet closed, oldest first, with age, age flag, artisan, track and requisition number.</div>
+        <button class="btn btn-p" onclick="downloadOpenJobsReport()">Download open jobs (Excel)</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Asset replacement register</div>
+        <div id="rpt-asset-count" style="font-size:12px;color:var(--tx2);margin-bottom:8px;"></div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">One row per replaced asset: job card, requisition and finance numbers, old and new serial numbers, install and removal dates, stores hand-over and return, and the photo checklist. For recognition and derecognition in the asset register.</div>
+        <button class="btn btn-p" onclick="downloadAssetRegisterReport()">Download replacement register (Excel)</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Stores reconciliation</div>
+        <div id="rpt-recon-count" style="font-size:12px;color:var(--tx2);margin-bottom:8px;"></div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Material issued against material returned, with exceptions listed first: not yet issued, old asset not returned, returned damaged, finance number missing.</div>
+        <button class="btn btn-p" onclick="downloadReconReport()">Download stores reconciliation (Excel)</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">User list</div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">Name, employee number, role, active status and PIN status. PINs are never shown: they are stored scrambled and cannot be read back.</div>
+        <button class="btn btn-p" onclick="downloadUserListReport()">Download user list (Excel)</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Audit log — who did what, and when</div>
+        <label>Person (name contains)</label>
+        <input type="text" id="rptAuditPerson" placeholder="e.g. Artisan 1" oninput="renderReports()">
+        <label style="margin-top:8px;">Action contains</label>
+        <input type="text" id="rptAuditAction" placeholder="e.g. Approved, Closed, Issued" oninput="renderReports()">
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <div style="flex:1;"><label>From</label><input type="date" id="rptAuditFrom" onchange="renderReports()"></div>
+          <div style="flex:1;"><label>To</label><input type="date" id="rptAuditTo" onchange="renderReports()"></div>
+        </div>
+        <div id="rpt-audit-count" style="font-size:12px;color:var(--tx2);margin:10px 0 4px;"></div>
+        <div id="rpt-audit-preview" style="max-height:260px;overflow-y:auto;margin-bottom:10px;"></div>
+        <button class="btn btn-p" onclick="downloadAuditReport()">Download audit log (Excel)</button>
+        <div style="font-size:11px;color:var(--tx3);margin-top:8px;">The download contains every matching action, not just the 25 shown above.</div>
+      </div>
+    </div>
+
     <!-- ── RECORDS ── -->
     <div class="screen" id="scr-records">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -1156,6 +1208,7 @@ const NAV_CONFIG = {
     { id:'new', label:'New job', screen:'scr-new' },
     { id:'stores', label:'Stores', screen:'scr-stores' },
     { id:'records', label:'Records', screen:'scr-records' },
+    { id:'reports', label:'Reports', screen:'scr-reports' },
     { id:'users', label:'Users', screen:'scr-users' }
   ],
   senior_manager: [
@@ -1163,15 +1216,18 @@ const NAV_CONFIG = {
     { id:'new', label:'New job', screen:'scr-new' },
     { id:'stores', label:'Stores', screen:'scr-stores' },
     { id:'records', label:'Records', screen:'scr-records' },
+    { id:'reports', label:'Reports', screen:'scr-reports' },
     { id:'users', label:'Users', screen:'scr-users' }
   ],
   read_only: [
     { id:'dashboard', label:'Dashboard', screen:'scr-dashboard' },
-    { id:'records', label:'Records', screen:'scr-records' }
+    { id:'records', label:'Records', screen:'scr-records' },
+    { id:'reports', label:'Reports', screen:'scr-reports' }
   ]
 };
 
 const NAV_ICONS = {
+  reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   dashboard: '<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.4"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="1.4"/>',
   new: '<rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   myjobs: '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 5a2 2 0 002 2h2a2 2 0 002-2" stroke="currentColor" stroke-width="1.4"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -1462,7 +1518,7 @@ async function pullUsers() {
       APP.users = rows.map(function(r) {
         return { id:r.id, name:r.name, role:r.role, contact:r.contact,
                  employeeId:r.employee_id, employeeNumber:r.employee_number,
-                 pinHash:r.pin_hash, mustChangePin:r.must_change_pin,
+                 pinHash:r.pin_hash, mustChangePin:r.must_change_pin, pinChangedAt:r.pin_changed_at,
                  active:r.active, createdBy:r.created_by, createdAt:r.created_at };
       });
       APP.users.forEach(function(u){ if (APP._pinPending && APP._pinPending[u.id]) { u.pinHash = APP._pinPending[u.id]; u.mustChangePin = false; } });
@@ -1553,7 +1609,7 @@ function toggleGpsFlag() {
 // ─────────────────────────────────────────────────────────────────────────────
 // System admin credentials — hardcoded, not in database
 // ── VERSION (update on EVERY release: vMAJOR.MINOR.PATCH · build date · short note) ──
-const APP_VERSION = 'v0.9.2';
+const APP_VERSION = 'v0.10.2';
 const APP_BUILD   = '2026-11-17';
 const APP_VERSION_LABEL = APP_VERSION + ' · build ' + APP_BUILD;
 document.addEventListener('DOMContentLoaded',function(){var vb=document.getElementById('app-version-bar'); if(vb) vb.textContent='FMS '+APP_VERSION_LABEL;var e=document.getElementById('app-version-login'); if(e) e.textContent='Version '+APP_VERSION_LABEL; document.title=document.title+' '+APP_VERSION;});
@@ -1599,6 +1655,10 @@ function hideErr(elId) {
 }
 
 async function login() {
+  try { await loginInner(); }
+  catch(e) { showErr('loginErr', 'Sign-in error: ' + (e && e.message ? e.message : e) + ' (v' + APP_VERSION.replace('v','') + ')'); }
+}
+async function loginInner() {
   hideErr('loginErr');
   var empNo = document.getElementById('loginEmpNo').value.trim().toUpperCase();
   var pin = document.getElementById('loginPin').value.trim();
@@ -1759,8 +1819,9 @@ function initApp() {
     pullJobs();
   }
   // Poll every 60 seconds while online for real-time updates
-  setInterval(function() {
-    if (APP.online) {
+  if (APP._pollTimer) clearInterval(APP._pollTimer);
+  APP._pollTimer = setInterval(function() {
+    if (APP.online && APP.user) {
       syncPending();
       pullJobs();
     }
@@ -1824,6 +1885,7 @@ function goTo(screenId, navId) {
     recFilter(defaultFilter);
   }
   if (screenId === 'scr-users') renderUsersList('all');
+  if (screenId === 'scr-reports') renderReports();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2114,6 +2176,218 @@ function searchJobs(q) {
 // ─────────────────────────────────────────────────────────────────────────────
 // JOB LIST RENDERING
 // ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORTS & EXCEL EXPORT (v0.10.0) — self-contained .xlsx writer, no libraries
+// ═══════════════════════════════════════════════════════════════════════════
+var XLSX_CRC = (function(){ var t=[],c,n,k; for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;} return t; })();
+function xlsxCrc32(b){ var c=0xFFFFFFFF; for(var i=0;i<b.length;i++) c=XLSX_CRC[(c^b[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function xlsxEsc(v){ return String(v).replace(/[<>&"]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];}).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,''); }
+function xlsxCol(i){ var s=''; i++; while(i>0){ var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26);} return s; }
+function xlsxDateSerial(d){ var t=(d instanceof Date)?d:new Date(d); if(isNaN(t)) return null; return (t.getTime()-t.getTimezoneOffset()*60000)/86400000+25569; }
+
+// sheet = { name, headers:[...], rows:[[...]], widths:[...] } ; cell value: string | number | Date | null
+function xlsxSheetXml(sh){
+  var out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  out+='<sheetViews><sheetView workbookViewId="0">'+(sh.freeze===false?'':'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>')+'</sheetView></sheetViews>';
+  if(sh.widths){ out+='<cols>'+sh.widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'; }
+  out+='<sheetData>';
+  var all=[sh.headers].concat(sh.rows);
+  all.forEach(function(r,ri){
+    out+='<row r="'+(ri+1)+'">';
+    r.forEach(function(v,ci){
+      var ref=xlsxCol(ci)+(ri+1);
+      if(ri===0 && sh.headerStyle!==false){ out+='<c r="'+ref+'" s="1" t="inlineStr"><is><t>'+xlsxEsc(v)+'</t></is></c>'; return; }
+      if(v===null||v===undefined||v===''){ return; }
+      if(v instanceof Date){ var ser=xlsxDateSerial(v); if(ser!==null) out+='<c r="'+ref+'" s="2"><v>'+ser+'</v></c>'; return; }
+      if(typeof v==='number' && isFinite(v)){ out+='<c r="'+ref+'"><v>'+v+'</v></c>'; return; }
+      out+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xlsxEsc(v)+'</t></is></c>';
+    });
+    out+='</row>';
+  });
+  out+='</sheetData>';
+  if(sh.headers && sh.headerStyle!==false && sh.rows.length) out+='<autoFilter ref="A1:'+xlsxCol(sh.headers.length-1)+(sh.rows.length+1)+'"/>';
+  return out+'</worksheet>';
+}
+
+function xlsxZip(files){ // STORE (no compression) zip
+  var enc=new TextEncoder(), parts=[], central=[], offset=0;
+  files.forEach(function(f){
+    var name=enc.encode(f.name), data=enc.encode(f.data), crc=xlsxCrc32(data);
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,0,true); lh.setUint16(12,0x21,true); lh.setUint32(14,crc,true);
+    lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true); lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),name,data);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint16(12,0,true); ch.setUint16(14,0x21,true); ch.setUint32(16,crc,true); ch.setUint32(20,data.length,true); ch.setUint32(24,data.length,true);
+    ch.setUint16(28,name.length,true); ch.setUint32(42,offset,true);
+    central.push(new Uint8Array(ch.buffer),name);
+    offset+=30+name.length+data.length;
+  });
+  var cdSize=0; central.forEach(function(c){cdSize+=c.length;});
+  var end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+  end.setUint32(12,cdSize,true); end.setUint32(16,offset,true);
+  return new Blob(parts.concat(central,[new Uint8Array(end.buffer)]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function buildXlsxBlob(sheets){
+  var ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  var rel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  var files=[];
+  files.push({name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map(function(s,i){return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';}).join('')+'</Types>'});
+  files.push({name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="'+rel+'/officeDocument" Target="xl/workbook.xml"/></Relationships>'});
+  files.push({name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="'+ns+'" xmlns:r="'+rel+'"><sheets>'+sheets.map(function(s,i){return '<sheet name="'+xlsxEsc(s.name.replace(/[\\\/\?\*\[\]:]/g,'').slice(0,31))+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>';}).join('')+'</sheets></workbook>'});
+  files.push({name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map(function(s,i){return '<Relationship Id="rId'+(i+1)+'" Type="'+rel+'/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>';}).join('')+'<Relationship Id="rId'+(sheets.length+1)+'" Type="'+rel+'/styles" Target="styles.xml"/></Relationships>'});
+  files.push({name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="'+ns+'"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd\\ hh:mm"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0C447C"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>'});
+  sheets.forEach(function(s,i){ files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',data:xlsxSheetXml(s)}); });
+  return xlsxZip(files);
+}
+
+function downloadXlsx(filename, sheets){
+  try {
+    var blob=buildXlsxBlob(sheets);
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },1500);
+  } catch(e){ alert('Could not create the Excel file: '+e.message); }
+}
+
+function reportAboutSheet(title, extra){
+  var rows=[['Report',title],['Generated',new Date()],['Generated by',(APP.user?APP.user.name+' ('+(ROLE_LABELS[APP.user.role]||APP.user.role)+')':'')],['App version',APP_VERSION_LABEL],['Municipality','Mogalakwena Local Municipality — Electricity']];
+  (extra||[]).forEach(function(e){rows.push(e);});
+  return { name:'About', headers:['Item','Value'], rows:rows, widths:[22,60], headerStyle:true, freeze:false };
+}
+
+// ── DATA BUILDERS ────────────────────────────────────────────────────────────
+function validJobsForReport(){ return (APP.jobs||[]).filter(function(j){ return j && j.faultCategory && j.faultCategory!=='null' && j.location && j.location.streetAddress; }); }
+function userRoleByName(n){ var u=(APP.users||[]).find(function(x){return (x.name||'').toLowerCase()===(n||'').toLowerCase();}); return u?(ROLE_LABELS[u.role]||u.role):''; }
+
+function buildAuditRows(){
+  var f={ person:(document.getElementById('rptAuditPerson')||{}).value||'', action:(document.getElementById('rptAuditAction')||{}).value||'', from:(document.getElementById('rptAuditFrom')||{}).value||'', to:(document.getElementById('rptAuditTo')||{}).value||'' };
+  var fromT=f.from?new Date(f.from+'T00:00:00').getTime():null, toT=f.to?new Date(f.to+'T23:59:59').getTime():null;
+  var p=f.person.trim().toLowerCase(), a=f.action.trim().toLowerCase();
+  var rows=[];
+  validJobsForReport().forEach(function(j){
+    (j.activityLog||[]).forEach(function(e){
+      var t=new Date(e.at).getTime(); if(isNaN(t)) return;
+      if(fromT!==null && t<fromT) return; if(toT!==null && t>toT) return;
+      if(p && (e.by||'').toLowerCase().indexOf(p)<0) return;
+      if(a && ((e.action||'')+' '+(e.notes||'')).toLowerCase().indexOf(a)<0) return;
+      rows.push({t:t, date:new Date(t), by:e.by||'', role:userRoleByName(e.by), action:e.action||'', notes:e.notes||'', jcn:j.jcn||'', fault:FAULT_LABELS[j.faultCategory]||j.faultCategory, priority:j.priority||'', status:(STATUS_META[j.status]||{}).label||j.status, address:j.location.streetAddress||''});
+    });
+  });
+  rows.sort(function(x,y){return y.t-x.t;});
+  return rows;
+}
+
+function buildOpenJobsRows(){
+  var now=Date.now(), rows=[];
+  validJobsForReport().filter(function(j){return !['closed','rejected'].includes(j.status);}).forEach(function(j){
+    var lt=new Date(j.timestamps&&j.timestamps.logged); var ageH=isNaN(lt)?null:Math.floor((now-lt)/3600000);
+    var flag=getAgeFlag(j); var req=j.requisition||{};
+    rows.push({ageH:ageH||0, cells:[ j.jcn||'', FAULT_LABELS[j.faultCategory]||j.faultCategory, j.priority||'', (STATUS_META[j.status]||{}).label||j.status, j.location.streetAddress||'', j.responsibleArtisan||'Unassigned', j.loggedBy||'', isNaN(lt)?null:lt, ageH===null?null:Math.round(ageH/24*10)/10, flag==='red'?'RED':flag==='amber'?'AMBER':'OK', j.track?('Track '+j.track):'', j.staffShortage?'Yes':'No', req.systemReqNumber||'', j.faultDescription||'' ]});
+  });
+  rows.sort(function(a,b){return b.ageH-a.ageH;});
+  return rows.map(function(r){return r.cells;});
+}
+var OPEN_HEADERS=['Job card no.','Fault type','Priority','Status','Location','Responsible artisan','Logged by','Date logged','Age (days)','Age flag','Track','Staff shortage','Requisition no.','Fault description'];
+var OPEN_WIDTHS=[16,24,10,20,36,22,20,18,11,10,10,12,18,50];
+var AUDIT_HEADERS=['Date & time','Person','Role','Action','Notes','Job card no.','Fault type','Priority','Job status now','Location'];
+var AUDIT_WIDTHS=[18,22,16,36,40,16,24,10,18,36];
+
+// ── SCREEN ───────────────────────────────────────────────────────────────────
+function renderReports(){
+  var open=buildOpenJobsRows(), aud=buildAuditRows();
+  var el=document.getElementById('rpt-open-count'); if(el) el.textContent=open.length+' open job'+(open.length===1?'':'s')+' (oldest first)';
+  var ac=document.getElementById('rpt-audit-count'); if(ac) ac.textContent=aud.length+' action'+(aud.length===1?'':'s')+' match your filters';
+  var ec=document.getElementById('rpt-asset-count'); if(ec){var n=buildAssetRegisterRows().length; ec.textContent=n+' replaced asset'+(n===1?'':'s')+' on record';}
+  var rc=document.getElementById('rpt-recon-count'); if(rc){var rr=buildReconRows(); var ex=rr.filter(function(r){return r[16]!=='OK';}).length; rc.textContent=rr.length+' requisition'+(rr.length===1?'':'s')+', '+ex+' with an exception';}
+  var box=document.getElementById('rpt-audit-preview');
+  if(box){
+    box.innerHTML = aud.slice(0,25).map(function(r){
+      return '<div style="border-bottom:1px solid var(--bd,#e5e5e5);padding:7px 0;font-size:12px;"><div><strong>'+xlsxEsc(r.action)+'</strong></div><div style="color:var(--tx2);">'+xlsxEsc(r.by)+(r.role?' ('+xlsxEsc(r.role)+')':'')+' · '+xlsxEsc(r.jcn)+'</div><div style="color:var(--tx3);font-size:11px;">'+r.date.toLocaleString()+'</div></div>';
+    }).join('') || '<div class="empty" style="padding:12px;">No actions match.</div>';
+  }
+}
+function downloadOpenJobsReport(){
+  var rows=buildOpenJobsRows();
+  downloadXlsx('FMS_Open_jobs_'+new Date().toISOString().slice(0,10)+'.xlsx',[{name:'Open jobs',headers:OPEN_HEADERS,rows:rows,widths:OPEN_WIDTHS},reportAboutSheet('Open jobs — all ages',[['Rows',rows.length],['Age flag rule','Critical 4h/24h, High 24h/48h, Medium 72h/168h, Low 168h/336h (amber/red)']])]);
+}
+function downloadAuditReport(){
+  var r=buildAuditRows();
+  var rows=r.map(function(x){return [x.date,x.by,x.role,x.action,x.notes,x.jcn,x.fault,x.priority,x.status,x.address];});
+  var f=function(id){return (document.getElementById(id)||{}).value||'(any)';};
+  downloadXlsx('FMS_Audit_log_'+new Date().toISOString().slice(0,10)+'.xlsx',[{name:'Audit log',headers:AUDIT_HEADERS,rows:rows,widths:AUDIT_WIDTHS},reportAboutSheet('Audit log — activity on all job cards',[['Rows',rows.length],['Filter: person',f('rptAuditPerson')],['Filter: action text',f('rptAuditAction')],['Filter: from',f('rptAuditFrom')],['Filter: to',f('rptAuditTo')]])]);
+}
+
+// ── v0.10.1 REPORTS: asset replacement register, stores reconciliation, user list ──
+function rptDate(v){ if(!v) return null; var d=new Date(v); return isNaN(d)?null:d; }
+function jobHasLog(j,txt){ return (j.activityLog||[]).some(function(a){return (a.action||'').indexOf(txt)>=0;}); }
+function jobHasPhoto(j,type){ return (j.photos||[]).some(function(p){return p.type===type;}); }
+function yn(b){ return b?'Yes':'No'; }
+
+var ASSET_HEADERS=['Job card no.','Requisition no.','Finance system no.','Job status','Location','Pole number','Equipment','Old asset serial (removed)','New asset serial (installed)','Installed date','Removed date','Artisan','Issued by (stores)','Issued date','Returned by (stores)','Returned date','Return condition','Damage notes','Closed date','Asset register notified','Photo 1 issued','Photo 2 as found','Photo 3 installed','Photo 4 removed serial','Photo 4A removed condition','Photo 5 returned','Photo chain complete'];
+var ASSET_WIDTHS=[16,16,18,18,34,14,24,22,22,17,17,18,18,17,18,17,16,30,17,16,10,10,10,12,14,10,14];
+function buildAssetRegisterRows(){
+  var rows=[];
+  validJobsForReport().filter(function(j){return j.assetType==='point' && j.installType==='replacement';}).forEach(function(j){
+    var inv=j.investigation||{}, req=j.requisition||{}, an=j.assetNotification||{}, ts=j.timestamps||{};
+    var p1=!!req.issuePhoto||jobHasLog(j,'Photo 1 captured'), p2=jobHasPhoto(j,'existing_as_found'), p3=jobHasPhoto(j,'new_as_installed'), p4=jobHasPhoto(j,'removed_serial'), p4a=jobHasPhoto(j,'removed_condition'), p5=!!req.checkinPhoto||jobHasPhoto(j,'returned_to_stores')||jobHasLog(j,'Photo 5 captured');
+    var p3o=(j.photos||[]).find(function(p){return p.type==='new_as_installed';}), p4o=(j.photos||[]).find(function(p){return p.type==='removed_condition';});
+    var complete=p1&&p2&&p3&&p4&&p4a&&p5;
+    rows.push([j.jcn||'', req.systemReqNumber||'', req.financialSystemNumber||'', (STATUS_META[j.status]||{}).label||j.status, j.location.streetAddress||'', inv.poleNumber||'', inv.equipment||'', inv.serialNumber||'', req.issueSerial||'', rptDate(an.installDate||(p3o&&p3o.takenAt)), rptDate(an.removalDate||(p4o&&p4o.takenAt)), j.responsibleArtisan||'', req.issuedBy||'', rptDate(req.issuedAt), req.returnedBy||'', rptDate(req.returnedAt), req.returnCondition||'', req.damageNotes||'', rptDate(ts.closed), an.sent?'Yes':(j.status==='closed'?'Pending':'Not yet'), yn(p1),yn(p2),yn(p3),yn(p4),yn(p4a),yn(p5), complete?'Yes':'No']);
+  });
+  return rows;
+}
+
+var RECON_HEADERS=['Job card no.','Requisition no.','Manual requisition no.','Finance system no.','Job status','Items requested','Issued','Issued date','Issued by','Item serial','Return required','Returned','Returned date','Return condition','Days since issue','Days finance no. outstanding','Exception'];
+var RECON_WIDTHS=[16,16,18,18,18,40,9,17,18,18,12,10,17,16,12,14,34];
+function buildReconRows(){
+  var rows=[], now=Date.now();
+  validJobsForReport().filter(function(j){ var r=j.requisition||{}; return j.track==='B' || r.systemReqNumber || r.issued; }).forEach(function(j){
+    var r=j.requisition||{}, retReq=(j.assetType==='point' && j.installType==='replacement');
+    var items=(r.items||[]).map(function(i){return (i.stockCode||i.code||'')+' '+(i.description||i.desc||'');}).join('; ').trim();
+    var daysIssue=r.issued&&r.issuedAt?Math.floor((now-new Date(r.issuedAt))/86400000):null;
+    var finDays=(r.issued&&!r.financialSystemNumber&&r.issuedAt)?Math.floor((now-new Date(r.issuedAt))/86400000):null;
+    var ex=[];
+    if(r.systemReqNumber && !r.issued) ex.push('Not yet issued');
+    if(retReq && r.issued && !r.returned) ex.push('Old asset not returned');
+    if(r.returned && r.returnCondition==='damaged') ex.push('Returned damaged');
+    if(r.issued && !r.financialSystemNumber) ex.push('Finance no. missing');
+    rows.push([j.jcn||'', r.systemReqNumber||'', r.manualReqNumber||'', r.financialSystemNumber||'', (STATUS_META[j.status]||{}).label||j.status, items, yn(r.issued), rptDate(r.issuedAt), r.issuedBy||'', r.issueSerial||'', retReq?'Yes':'No', retReq?yn(r.returned):'', rptDate(r.returnedAt), r.returnCondition||'', daysIssue, finDays, ex.join(' | ')||'OK']);
+  });
+  rows.sort(function(a,b){ return (b[16]==='OK'?0:1)-(a[16]==='OK'?0:1); });
+  return rows;
+}
+
+var USER_HEADERS=['Name','Employee number','Role','Active','PIN status','Contact','Created by','Date created','PIN last changed'];
+var USER_WIDTHS=[26,18,18,9,32,20,20,18,18];
+function buildUserRows(){
+  var rows=[['System Admin','SYS-001','Sr. Manager','Yes','Built-in account (not in database)','','','','']];
+  (APP.users||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');}).forEach(function(u){
+    var pinSt=!u.pinHash?'No PIN set yet (first sign-in sets it)':(u.mustChangePin?'Starting PIN — not yet changed':'Personal PIN set');
+    rows.push([u.name||'', u.employeeNumber||u.employeeId||'', ROLE_LABELS[u.role]||u.role||'', u.active===false?'No':'Yes', pinSt, u.contact||'', u.createdBy||'', rptDate(u.createdAt), rptDate(u.pinChangedAt)]);
+  });
+  return rows;
+}
+
+async function downloadUserListReport(){
+  try { await pullUsers(); } catch(e){}
+  var rows=buildUserRows();
+  downloadXlsx('FMS_User_list_'+new Date().toISOString().slice(0,10)+'.xlsx',[{name:'Users',headers:USER_HEADERS,rows:rows,widths:USER_WIDTHS},reportAboutSheet('User list (PINs are never shown — they are stored scrambled)',[['Rows',rows.length]])]);
+}
+function downloadAssetRegisterReport(){
+  var rows=buildAssetRegisterRows();
+  downloadXlsx('FMS_Asset_replacement_register_'+new Date().toISOString().slice(0,10)+'.xlsx',[{name:'Replacement register',headers:ASSET_HEADERS,rows:rows,widths:ASSET_WIDTHS},reportAboutSheet('Asset replacement register (recognition / derecognition)',[['Rows',rows.length],['Note','Photo columns show whether each photo was recorded. Photos themselves are stored on the device that took them.']])]);
+}
+function downloadReconReport(){
+  var rows=buildReconRows();
+  downloadXlsx('FMS_Stores_reconciliation_'+new Date().toISOString().slice(0,10)+'.xlsx',[{name:'Stores reconciliation',headers:RECON_HEADERS,rows:rows,widths:RECON_WIDTHS},reportAboutSheet('Stores reconciliation — material issued vs returned',[['Rows',rows.length],['Exceptions','Rows with an exception are listed first']])]);
+}
+
 // ── AGE THRESHOLDS (hours) ────────────────────────────────────────────────────
 const AGE_THRESHOLDS = {
   critical: { amber: 4,   red: 24  },
@@ -3416,8 +3690,8 @@ function clearLocalData() {
 }
 function confirmLogout() {
   APP.user = null;
-  APP.jobs = [];
-  APP._pendingSync = [];
+  delete APP._pendingUser; delete APP._pendingPin;
+  try { var _j=localStorage.getItem(SK); APP.jobs = _j ? JSON.parse(_j) : []; } catch(e) { APP.jobs = []; }
   try { localStorage.removeItem('fms_session_v1'); } catch(e) {}
   var modal = document.getElementById('logoutModal');
   if (modal) modal.style.display = 'none';
