@@ -350,16 +350,8 @@ input:checked+.tslider:before{transform:translateX(19px);}
       <h1 id="appTitle">Municipal FMS</h1>
     </div>
     <div class="app-header-right">
-      <div class="role-badge" id="roleBadge" style="font-size:10px;"></div>
-      <button onclick="showLogout()"
-        style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:6px;color:white;cursor:pointer;padding:6px 10px;font-size:12px;font-weight:500;font-family:inherit;display:flex;align-items:center;gap:5px;">
-        <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
-          <path d="M13 3h4a1 1 0 011 1v12a1 1 0 01-1 1h-4" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
-          <path d="M8 14l4-4-4-4M12 10H3" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Log out
-      </button>
-      <div class="sync-pill" id="syncPill">
+      <div class="role-badge" id="roleBadge" onclick="showLogout()" title="Tap to switch role" style="cursor:pointer;"></div>
+      <div class="sync-pill" id="syncPill" title="Version 202604161205">
         <div class="sdot" id="sdot"></div>
         <span id="syncLbl">Online</span>
       </div>
@@ -550,6 +542,7 @@ input:checked+.tslider:before{transform:translateX(19px);}
         <button class="badge badge-warn" style="cursor:pointer;border:none;" onclick="myJobFilter('active')">Active</button>
         <button class="badge badge-brand" style="cursor:pointer;border:none;" onclick="myJobFilter('all')">All</button>
         <button class="badge badge-success" style="cursor:pointer;border:none;" onclick="myJobFilter('closed')">Closed</button>
+        <button class="badge badge-gray" style="cursor:pointer;border:none;" onclick="myJobFilter('everyone')">All open (anyone)</button>
       </div>
       <div class="card" id="my-jobs-list">
         <div class="empty">
@@ -1468,6 +1461,7 @@ async function pullUsers() {
                  pinHash:r.pin_hash, mustChangePin:r.must_change_pin,
                  active:r.active, createdBy:r.created_by, createdAt:r.created_at };
       });
+      APP.users.forEach(function(u){ if (APP._pinPending && APP._pinPending[u.id]) { u.pinHash = APP._pinPending[u.id]; u.mustChangePin = false; } });
       saveLocal();
       populateArtisanDropdowns();
     }
@@ -1612,8 +1606,8 @@ async function login() {
   // Find user by employee number
   var user = APP.users.find(function(u) { return u.active && u.employeeNumber && u.employeeNumber.toUpperCase() === empNo; });
 
-  if (!user && APP.online) {
-    // Try pulling from Supabase — user may not be in local cache
+  if (APP.online) {
+    // Always refresh this user from Supabase so a stale local copy can never force a PIN change again
     try {
       var res = await fetch(SUPA_URL + '/rest/v1/fms_users?employee_number=eq.' + encodeURIComponent(empNo) + '&active=eq.true', {
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Prefer': 'return=representation' }
@@ -1623,6 +1617,7 @@ async function login() {
         user = { id:rows[0].id, name:rows[0].name, role:rows[0].role, contact:rows[0].contact,
                  employeeNumber:rows[0].employee_number, employeeId:rows[0].employee_id,
                  active:rows[0].active, pinHash:rows[0].pin_hash, mustChangePin:rows[0].must_change_pin };
+        if (APP._pinPending && APP._pinPending[user.id]) { user.pinHash = APP._pinPending[user.id]; user.mustChangePin = false; }
         // Cache locally
         var existing = APP.users.findIndex(function(u) { return u.id === user.id; });
         if (existing >= 0) APP.users[existing] = user; else APP.users.push(user);
@@ -1686,12 +1681,17 @@ async function changePin() {
   // Sync PIN hash to Supabase
   if (APP.online) {
     try {
-      await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + user.id, {
+      var pr = await fetch(SUPA_URL + '/rest/v1/fms_users?id=eq.' + user.id, {
         method: 'PATCH',
         headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
         body: JSON.stringify({ pin_hash: hash, must_change_pin: false, pin_changed_at: user.pinChangedAt })
       });
-    } catch(e) { console.warn('PIN sync failed:', e.message); }
+      if (!pr.ok) {
+        var pt = await pr.text();
+        APP._pinPending = APP._pinPending || {}; APP._pinPending[user.id] = hash;
+        alert('Your PIN was set on this device but could not be saved to the server (' + pr.status + ': ' + pt.slice(0,150) + '). Please screenshot this message and send it to the coordinator.');
+      }
+    } catch(e) { console.warn('PIN sync failed:', e.message); alert('PIN could not be saved to the server: ' + e.message); }
   }
 
   document.getElementById('newPin1').value = '';
@@ -3205,12 +3205,17 @@ function requestRework(jobId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MY JOBS SCREEN (Artisan)
 // ─────────────────────────────────────────────────────────────────────────────
+function isMyJob(j) {
+  const n = (APP.user.name || '').trim().toLowerCase();
+  if ((j.responsibleArtisan || '').trim().toLowerCase() === n) return true;
+  return (j.activityLog || []).some(function(a) { return (a.by || '').trim().toLowerCase() === n; });
+}
 function myJobFilter(filter) {
-  const name = APP.user.name;
   let jobs;
-  if (filter === 'active') jobs = APP.jobs.filter(j => j.responsibleArtisan === name && !['closed','rejected'].includes(j.status));
-  else if (filter === 'closed') jobs = APP.jobs.filter(j => j.responsibleArtisan === name && j.status === 'closed');
-  else jobs = APP.jobs.filter(j => j.responsibleArtisan === name);
+  if (filter === 'active') jobs = APP.jobs.filter(j => isMyJob(j) && !['closed','rejected'].includes(j.status));
+  else if (filter === 'closed') jobs = APP.jobs.filter(j => isMyJob(j) && j.status === 'closed');
+  else if (filter === 'everyone') jobs = APP.jobs.filter(j => !['closed'].includes(j.status));
+  else jobs = APP.jobs.filter(j => isMyJob(j));
   renderJobList('my-jobs-list', jobs);
 }
 
