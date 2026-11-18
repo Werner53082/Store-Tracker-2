@@ -848,6 +848,7 @@ input:checked+.tslider:before{transform:translateX(19px);}
           <p id="pzt-inv-fault">Tap to photograph fault as found</p>
         </div>
         <img class="pthumb" id="pt-inv-fault" src="" alt="">
+        <div id="xtra-inv_fault"></div>
       </div>
 
       <div class="card">
@@ -1610,7 +1611,7 @@ function toggleGpsFlag() {
 // ─────────────────────────────────────────────────────────────────────────────
 // System admin credentials — hardcoded, not in database
 // ── VERSION (update on EVERY release: vMAJOR.MINOR.PATCH · build date · short note) ──
-const APP_VERSION = 'v0.10.4';
+const APP_VERSION = 'v0.11.0';
 const APP_BUILD   = '2026-11-17';
 const APP_VERSION_LABEL = APP_VERSION + ' · build ' + APP_BUILD;
 document.addEventListener('DOMContentLoaded',function(){var vb=document.getElementById('app-version-bar'); if(vb) vb.textContent='FMS '+APP_VERSION_LABEL;var e=document.getElementById('app-version-login'); if(e) e.textContent='Version '+APP_VERSION_LABEL; document.title=document.title+' '+APP_VERSION;});
@@ -2507,7 +2508,9 @@ function renderJobActions(j) {
   // ARTISAN actions — any artisan can action any job at their stage
   // Name matching removed: jobs may have been assigned to placeholder names
   // or reassigned. Role is the gating factor, not the name.
-  if (role === 'artisan') {
+  if (role === 'artisan' && !isMyJob(j)) {
+    html += '<div class="notice notice-info mt8">This job is assigned to ' + (j.responsibleArtisan || 'another artisan') + '. You can view it but not action it. If you are needed on this job, ask your technician or manager to assign you.</div>';
+  } else if (role === 'artisan') {
     if (['open','investigating','rejected'].includes(status)) {
       html += '<button class="btn btn-p mt8" onclick="openInvestigation(\'' + j.id + '\')">Start / update investigation</button>';
     }
@@ -2520,10 +2523,13 @@ function renderJobActions(j) {
     if (status === 'pending_signoff') {
       html += '<div class="notice notice-info mt8">Completion submitted — awaiting sign-off.</div>';
     }
+    if (['pending_approval','pending_dm_approval'].includes(status)) {
+      html += '<div class="notice notice-info mt8">Investigation submitted — waiting for ' + (status==='pending_dm_approval' ? 'Divisional Manager' : 'technician') + ' approval.</div>';
+    }
   }
 
   // TECHNICIAN actions
-  if (role === 'technician' || (role === 'artisan' && j.staffShortage)) {
+  if (role === 'technician') {
     if (status === 'pending_approval') {
       html += '<button class="btn btn-warn mt8" onclick="openTechApproval(\'' + j.id + '\')">Review &amp; approve / escalate</button>';
     }
@@ -2629,9 +2635,12 @@ function backToJob() {
 let INV = { track: null, installType: null, reqItems: [], gps: null, gpsErr: false };
 
 function openInvestigation(jobId) {
+  { var _jj = APP.jobs.find(function(x){return x.id===jobId;}); if (APP.user && APP.user.role==='artisan' && _jj && !isMyJob(_jj)) { alert('This job is assigned to ' + (_jj.responsibleArtisan||'another artisan') + '. Ask your technician or manager to assign it to you.'); return; } }
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
+  APP.extras = {};
+  setTimeout(function(){ renderExtraPhotos('inv_fault'); }, 0);
   INV = { track: j.track, installType: j.installType, reqItems: j.requisition ? [...(j.requisition.items||[])] : [], gps: null, gpsErr: false };
 
   // Summary card
@@ -2784,27 +2793,30 @@ function submitInvestigation() {
     requiredItems: INV.reqItems,
     photos: [{ type: 'fault_as_found', dataUrl: APP.photos['inv_fault'], takenAt: new Date().toISOString(),
       gps: INV.gps ? { ...INV.gps, flagged: gpsFlag, manualOverride: gpsFlag ? gpsManual : null } : null }]
+      .concat((APP.extras['inv_fault'] || []).map(function(d, i) { return { type: 'fault_as_found', extra: i + 2, dataUrl: d, takenAt: new Date().toISOString(), gps: INV.gps ? { ...INV.gps, flagged: gpsFlag } : null }; }))
   };
   j.track = INV.track;
   j.assetType = assetType || null;
   j.installType = INV.installType || null;
   j.staffShortage = document.getElementById('staffShortage').checked;
-  j.status = 'pending_approval';
+  j.status = j.staffShortage ? 'pending_dm_approval' : 'pending_approval';
+  if (j.staffShortage) j.timestamps.approvalRequested = new Date().toISOString();
   if (INV.track === 'B') { j.requisition.items = INV.reqItems; }
   j.timestamps.investigationSubmitted = new Date().toISOString();
   if (j.location.gps) j.location.gps.arrival = INV.gps ? { ...INV.gps, flagged: gpsFlag } : null;
-  j.activityLog.push({ action: 'Investigation submitted — Track ' + INV.track, by: APP.user.name, at: new Date().toISOString() });
+  j.activityLog.push({ action: 'Investigation submitted — Track ' + INV.track + (j.staffShortage ? ' — staff shortage: routed directly to Divisional Manager' : ''), by: APP.user.name, at: new Date().toISOString() });
 
   save(); syncJob(j);
   APP.photos = APP.photos || {};
   APP.photos['inv_fault'] = null;
   APP.photos['pole_number_plate'] = null;
+  APP.extras['inv_fault'] = []; renderExtraPhotos('inv_fault');
   resetPhotoZone('inv_fault', 'Tap to photograph fault as found');
   resetPhotoZone('pole_number_plate', 'Tap to photograph pole number plate');
   document.getElementById('invPoleNumber').value = '';
   document.getElementById('invPoleType').value = '';
   updateDashboard();
-  alert('Investigation submitted.\nJob status: Pending approval\nTrack: ' + INV.track + (j.staffShortage ? '\nEscalated to DM (staff shortage).' : ''));
+  alert('Investigation submitted.\nJob status: ' + (j.staffShortage ? 'Pending Divisional Manager approval' : 'Pending approval') + '\nTrack: ' + INV.track + (j.staffShortage ? '\nStaff shortage: sent directly to the Divisional Manager.' : ''));
   openJob(j.id);
 }
 
@@ -2812,6 +2824,7 @@ function submitInvestigation() {
 // STAGE 3 — TECHNICIAN APPROVAL
 // ─────────────────────────────────────────────────────────────────────────────
 function openTechApproval(jobId) {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
@@ -2854,10 +2867,12 @@ function openTechApproval(jobId) {
       '<button class="btn btn-ok" onclick="techApproveJob()">Approve job card</button>' +
       '<button class="btn btn-danger" onclick="techRejectJob()">Reject</button>';
   }
+  appendInvPhotos('approve-tech-inv-content', inv);
   goTo('scr-approve-tech', null);
 }
 
 function techApproveJob() {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
   if (!j) return;
   const notes = document.getElementById('techApproveNotes').value.trim();
@@ -2871,6 +2886,7 @@ function techApproveJob() {
 }
 
 function techEscalateToDM() {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
   if (!j) return;
   const notes = document.getElementById('techApproveNotes').value.trim();
@@ -2884,6 +2900,7 @@ function techEscalateToDM() {
 }
 
 function techRejectJob() {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   const notes = document.getElementById('techApproveNotes').value.trim();
   if (!notes) { alert('Please enter a rejection reason in the notes field.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
@@ -2899,6 +2916,7 @@ function techRejectJob() {
 // STAGE 3 — DM APPROVAL
 // ─────────────────────────────────────────────────────────────────────────────
 function openDMApproval(jobId) {
+  if (!APP.user || !['manager','senior_manager'].includes(APP.user.role)) { alert('Only the Divisional Manager can approve at this stage.'); return; }
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
@@ -2912,7 +2930,7 @@ function openDMApproval(jobId) {
     '<div class="ir"><span class="l">Location</span><span class="v">' + j.location.streetAddress + '</span></div>' +
     '<div class="ir"><span class="l">Fault</span><span class="v">' + (FAULT_LABELS[j.faultCategory]||j.faultCategory) + '</span></div>' +
     '<div class="ir"><span class="l">Priority</span><span class="v"><span class="badge ' + pm.badge + '">' + pm.label + '</span></span></div>' +
-    '<div class="ir"><span class="l">Escalated by</span><span class="v">' + (j.assignedTechnician||j.loggedBy) + '</span></div>' +
+    '<div class="ir"><span class="l">' + (j.staffShortage ? 'Sent by (staff shortage)' : 'Escalated by') + '</span><span class="v">' + (j.staffShortage ? (j.responsibleArtisan||'Artisan') : (j.assignedTechnician||j.loggedBy)) + '</span></div>' +
     (j.staffShortage ? '<div class="notice notice-warn" style="margin-top:8px;">Staff shortage declared on this job — you are the signing authority.</div>' : '');
 
   document.getElementById('approve-dm-inv-content').innerHTML =
@@ -2937,10 +2955,12 @@ function openDMApproval(jobId) {
     '<button class="btn btn-ok" onclick="dmApproveJob()">Approve</button>' +
     '<button class="btn btn-danger" onclick="dmRejectJob()">Reject</button>';
 
+  appendInvPhotos('approve-dm-inv-content', inv);
   goTo('scr-approve-dm', null);
 }
 
 function dmApproveJob() {
+  if (!APP.user || !['manager','senior_manager'].includes(APP.user.role)) { alert('Only the Divisional Manager can approve at this stage.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
   if (!j) return;
   const notes = document.getElementById('dmApproveNotes').value.trim();
@@ -2976,6 +2996,7 @@ function dmApproveJob() {
 }
 
 function dmRejectJob() {
+  if (!APP.user || !['manager','senior_manager'].includes(APP.user.role)) { alert('Only the Divisional Manager can approve at this stage.'); return; }
   const notes = document.getElementById('dmApproveNotes').value.trim();
   if (!notes) { alert('Please enter a rejection reason in the notes field.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
@@ -3232,6 +3253,7 @@ function getPhotoSequenceKey(job) {
 }
 
 function openExecution(jobId) {
+  { var _jj = APP.jobs.find(function(x){return x.id===jobId;}); if (APP.user && APP.user.role==='artisan' && _jj && !isMyJob(_jj)) { alert('This job is assigned to ' + (_jj.responsibleArtisan||'another artisan') + '. Ask your technician or manager to assign it to you.'); return; } }
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
@@ -3247,6 +3269,7 @@ function openExecution(jobId) {
   const seq = PHOTO_SEQUENCE[seqKey] || PHOTO_SEQUENCE.outage;
   const existingPhotos = (j.photos||[]).map(p => p.type);
   const done = seq.filter(s => existingPhotos.includes(s.key) || (APP.photos && APP.photos[s.key])).length;
+  APP.extras = {};
   document.getElementById('exec-photo-progress').textContent = done + ' / ' + seq.length + ' photos';
 
   document.getElementById('exec-photo-steps').innerHTML = seq.map((step, i) => {
@@ -3267,6 +3290,7 @@ function openExecution(jobId) {
       '</div></div>';
   }).join('');
 
+  mountExtraContainers(seq.map(function(st){return st.key;}));
   // Pre-fill outcome if already set
   if (j.completion && j.completion.outcome) document.getElementById('execOutcome').value = j.completion.outcome;
   if (j.completion && j.completion.report) document.getElementById('execNotes').value = j.completion.report;
@@ -3316,6 +3340,15 @@ function submitExecution() {
     }
   });
 
+  // Save optional extra photos (up to 4 per step including the compulsory one)
+  seq.forEach(function(step) {
+    var list = APP.extras[step.key] || [];
+    var already = (j.photos||[]).filter(function(p){return p.type===step.key && p.extra;}).length;
+    list.forEach(function(d, i) {
+      j.photos.push({ type: step.key, extra: already + i + 2, dataUrl: d, takenAt: new Date().toISOString(), takenBy: APP.user.name, gps: APP.gps });
+    });
+  });
+  APP.extras = {};
   j.completion = { report: notes, outcome, submittedAt: new Date().toISOString(), submittedBy: APP.user.name };
   j.status = 'pending_signoff';
   j.timestamps.completionSubmitted = new Date().toISOString();
@@ -3354,6 +3387,7 @@ function submitExecution() {
 // STAGE 6 — SIGN-OFF & CLOSURE
 // ─────────────────────────────────────────────────────────────────────────────
 function openSignoff(jobId) {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   APP._currentJobId = jobId;
   const j = APP.jobs.find(x => x.id === jobId);
   if (!j) return;
@@ -3442,6 +3476,7 @@ function openSignoff(jobId) {
 }
 
 function signoffJob() {
+  if (!APP.user || !['technician','manager','senior_manager'].includes(APP.user.role)) { alert('Your role is not allowed to approve or sign off jobs.'); return; }
   const j = APP.jobs.find(x => x.id === APP._currentJobId);
   if (!j) return;
   const notes = document.getElementById('signoffNotes').value.trim();
@@ -3497,9 +3532,9 @@ function requestRework(jobId) {
 // MY JOBS SCREEN (Artisan)
 // ─────────────────────────────────────────────────────────────────────────────
 function isMyJob(j) {
-  const n = (APP.user.name || '').trim().toLowerCase();
-  if ((j.responsibleArtisan || '').trim().toLowerCase() === n) return true;
-  return (j.activityLog || []).some(function(a) { return (a.by || '').trim().toLowerCase() === n; });
+  // Artisans only see/action jobs ASSIGNED to them (case/space-insensitive name match)
+  const n = (APP.user && APP.user.name || '').trim().toLowerCase();
+  return (j.responsibleArtisan || '').trim().toLowerCase() === n;
 }
 function myJobFilter(filter) {
   let jobs;
@@ -3527,6 +3562,56 @@ APP.camStream = null;
 APP.camFacing = 'environment';
 APP.camJobContext = null;
 
+
+// ── EXTRA PHOTOS (v0.11.0): up to 4 per step, 1st compulsory, extras optional (artisan steps only) ──
+const MAX_PHOTOS_PER_STEP = 4;
+APP.extras = {};
+function savedExtraCount(base) {
+  var j = APP.jobs.find(function(x){return x.id===APP._currentJobId;}); if (!j) return 0;
+  if (base === 'inv_fault') return ((j.investigation && j.investigation.photos) || []).filter(function(p){return p.extra;}).length;
+  return (j.photos||[]).filter(function(p){return p.type===base && p.extra;}).length;
+}
+function addExtraPhoto(base) {
+  var total = 1 + savedExtraCount(base) + (APP.extras[base]||[]).length;
+  if (total >= MAX_PHOTOS_PER_STEP) { alert('Maximum ' + MAX_PHOTOS_PER_STEP + ' photos for this step.'); return; }
+  APP.currentCamera = base + '__x';
+  APP.camJobContext = APP._currentJobId ? APP.jobs.find(function(x){return x.id===APP._currentJobId;}) : null;
+  document.getElementById('fileInput').click();
+}
+function removeExtraPhoto(base, idx) { (APP.extras[base]||[]).splice(idx,1); renderExtraPhotos(base); }
+function renderExtraPhotos(base) {
+  var box = document.getElementById('xtra-' + base); if (!box) return;
+  var primary = (base === 'inv_fault') ? !!(APP.photos && APP.photos['inv_fault']) :
+    (function(){ var j = APP.jobs.find(function(x){return x.id===APP._currentJobId;});
+      return !!((j && (j.photos||[]).some(function(p){return p.type===base;})) || (APP.photos && APP.photos[base])); })();
+  var list = APP.extras[base] || [], saved = savedExtraCount(base), total = 1 + saved + list.length;
+  var html = '';
+  if (saved) html += '<div style="font-size:11px;color:var(--tx2);margin-top:6px;">' + saved + ' extra photo' + (saved>1?'s':'') + ' already saved</div>';
+  list.forEach(function(d, i) {
+    html += '<div style="position:relative;margin-top:6px;"><img src="' + d + '" style="width:100%;max-height:140px;object-fit:cover;border-radius:var(--rs);" alt="">' +
+      '<button class="btn btn-s btn-sm" style="position:absolute;top:6px;right:6px;" onclick="removeExtraPhoto(\'' + base + '\',' + i + ')">Remove</button>' +
+      '<div style="font-size:11px;color:var(--tx2);">Extra photo ' + (saved + i + 2) + ' of ' + MAX_PHOTOS_PER_STEP + '</div></div>';
+  });
+  if (primary && total < MAX_PHOTOS_PER_STEP) {
+    html += '<button class="btn btn-s btn-sm" style="margin-top:8px;" onclick="addExtraPhoto(\'' + base + '\')">+ Add another photo (' + total + ' of ' + MAX_PHOTOS_PER_STEP + ' used, optional)</button>';
+  }
+  box.innerHTML = html;
+}
+function mountExtraContainers(keys) {
+  keys.forEach(function(key) {
+    var pz = document.getElementById('pz-' + key.replace(/_/g,'-')); if (!pz) return;
+    var c = document.getElementById('xtra-' + key);
+    if (!c) { c = document.createElement('div'); c.id = 'xtra-' + key; pz.parentNode.insertBefore(c, pz.nextSibling); }
+    renderExtraPhotos(key);
+  });
+}
+function appendInvPhotos(containerId, inv) {
+  var c = document.getElementById(containerId); if (!c || !inv || !inv.photos || inv.photos.length < 2) return;
+  var extras = inv.photos.slice(1), h = '<div style="margin-top:8px;font-size:11px;color:var(--tx2);">Additional investigation photos (' + extras.length + ')</div>';
+  extras.forEach(function(p){ h += p.dataUrl ? '<img src="' + p.dataUrl + '" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--rs);margin-top:6px;" alt="">' : '<div style="font-size:11px;color:var(--tx3);">Extra photo (stored on the device that took it)</div>'; });
+  c.insertAdjacentHTML('beforeend', h);
+}
+
 function openNativeCam(photoType) {
   APP.currentCamera = photoType;
   // Get the current job for stamp context
@@ -3552,8 +3637,15 @@ function handlePhoto(e) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       burnStamp(ctx, canvas.width, canvas.height, APP.currentCamera, APP.camJobContext);
       const stamped = canvas.toDataURL('image/jpeg', 0.65); // Compressed to reduce data usage
-      APP.photos[APP.currentCamera] = stamped;
-      markPhotoCaptured(APP.currentCamera, stamped);
+      if (/__x$/.test(APP.currentCamera)) {
+        var _b = APP.currentCamera.replace(/__x$/, '');
+        (APP.extras[_b] = APP.extras[_b] || []).push(stamped);
+        renderExtraPhotos(_b);
+      } else {
+        APP.photos[APP.currentCamera] = stamped;
+        markPhotoCaptured(APP.currentCamera, stamped);
+        renderExtraPhotos(APP.currentCamera);
+      }
     };
     img.src = ev.target.result;
   };
@@ -3581,7 +3673,8 @@ function burnStamp(ctx, W, H, photoType, job) {
     removed_condition: 'Removed asset — condition',
     returned_to_stores: 'Returned to stores'
   };
-  lines.push(photoLabels[photoType] || photoType);
+  var _isX = /__x$/.test(photoType), _base = photoType.replace(/__x$/, '');
+  lines.push((photoLabels[_base] || _base) + (_isX ? ' (extra photo)' : ''));
   // Job reference
   if (job) {
     lines.push('JCN: ' + job.jcn + (job.requisition && job.requisition.systemReqNumber ? ' | REQ: ' + job.requisition.systemReqNumber : ''));
